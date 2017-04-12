@@ -179,15 +179,15 @@ describe('Rule', () => {
     // }
 
     const action = {
-      method: `'${HttpMethod.Get.toUpperCase()}'`,
+      method: `${HttpMethod.Get.toUpperCase()}`,
     }
 
     const resource = {
-      route: `'/${Controller.Products}/${Products.Alcohol}'`,
+      route: `/${Controller.Products}/${Products.Alcohol}`,
     };
 
     const subject = {
-      role: `'${Role.User}'`,
+      role: `${Role.User}`,
       age: 16,
     };
 

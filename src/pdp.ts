@@ -3,7 +3,7 @@ import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, } from './co
 import * as jp from 'jsonpath';
 import { expect } from 'chai';
 import { Context } from './context';
-import { isBoolean, isArray, isString } from './utils';
+import { isBoolean, isArray, isString, isNumber, } from './utils';
 
 const SubscriptStart: string = '[';
 const SubscriptEnd: string = ']';
@@ -12,6 +12,14 @@ interface Error {
   id: string | number,
   message: string,
 }
+
+
+      // TODO: Allow to define equal operator for properties? See queryRes
+
+
+
+
+
 
 // 7.3.5 Attribute Retrieval 3294
 // The PDP SHALL request the values of attributes in the request context from the context handler.
@@ -369,6 +377,8 @@ export class Pdp {
         if (Context.Pdp.Debug) console.log(tag, 'Invalid query:', query);
         return null;
       }
+      // TODO: Allow to define equal operator for properties?
+      if (!isNumber(queryRes)) queryRes = `'${queryRes}'`;
       if (Context.Pdp.Debug) console.log(tag, 'queryRes:', queryRes);
       str = str.replace(query, queryRes);
       // Validate query?
