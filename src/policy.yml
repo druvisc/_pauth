@@ -1,0 +1,107 @@
+
+Request:
+
+- subject
+  - id
+  - type [systemuser|]
+  - organization
+  - role
+  - location
+  - connection
+    - remoteIpv4Address
+  - rate
+    - call
+- resource
+  - id
+  - type [api|...]
+- action
+  - id [GET | PUT | POST ...]
+  - type [httpaction|hydraoperation]
+
+
+Result:
+  permit, deny, not-applicable, and indeterminate
+
+
+Policy
+
+- name
+- description
+- combiningAlgorithm [urn:oasis:names:tc:xacml:3.0:rule-combining-algorithm:deny-overrides | urn:oasis:names:tc:xacml:3.0:rule-combining-algorithm:permit-overrides | ]
+(- target)
+- rules
+
+Rule
+
+- effect [permit|deny]
+- target
+  - role
+  - subject
+  - action
+    - category [api|...]
+    - propertyName [resource|action...]
+    - matchFunction [regex|...]
+    - value
+
+
+Example policies:
+
+- description: Application administrator can access any API resource owned by the organization in which he ownes the role appadmin as well as in any child organization
+- rule:
+  - effect: permit
+  - role:
+    - id: 'appadmin'
+    - organization: '$orgOfUser'  <-- query
+    - orgHierarchyEvalutation: '$equalOrChild'
+  - action: [ POST, PUT, PATCH, DELETE ]
+
+- description: Resource owner can CRUD his resources
+- rule:
+  - effect: permit
+  - resource: '/resources/*'
+  - owner: '$self' <-- query
+  - action: [ POST, PUT, PATCH, DELETE ]
+
+- description: User which is member of an organization can CRUD all resources owned by the organization
+- rule:
+  - effect: permit
+  - resource: '/resources/*'
+  - organization: '$resource.organization == $subject.organization'
+  - action: [ POST, PUT, PATCH, DELETE ]
+
+- description: An anonymous user can sign up
+- rule:
+  - effect: permit
+  - resource: '/resources/user'
+  - operation: 'RegisterUserOperation'
+  - role: 'unauthenticated'
+
+- description: An anonymous user can use the cart but not read it
+- rule:
+  - effect: permit
+  - resource: '/resources/cart'
+  - action: [ POST, PUT, PATCH, DELETE ]
+  - role: 'unauthenticated'
+
+- description: Catch all deny
+- rule:
+  - effect: deny
+
+
+
+based on operation, based on properties
+
+
+{
+    "actions": [
+        "GET",
+        "PUT",
+        "POST"
+    ]
+}
+
+
+$.actions[?(@ === 'GET')]
+
+
+

@@ -1,0 +1,6 @@
+{
+  // "extends": "eslint-config-restorecommerce",
+  "rules": {
+    "import/no-unresolved": 0
+  }
+}
