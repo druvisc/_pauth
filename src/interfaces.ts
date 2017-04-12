@@ -26,12 +26,7 @@ export interface Rule {
   // Identifies the set of decision requests that the <Rule> element is intended
   // to evaluate. If this element is omitted, then the target for the <Rule>
   // SHALL be defined by the <Target> element  of the enclosing <Policy> element.
-  target?: {
-    action?: HttpMethod
-    subject?: string[]
-    resource?: string[]
-    match?: TargetSet[]
-  }
+  target: string[][]
 
   // A predicate that MUST be satisfied for the rule to be assigned its Effect value.
   // TODO: allow array for multiple expressions or just one condition expression?

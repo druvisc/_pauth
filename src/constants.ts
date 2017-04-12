@@ -1,6 +1,6 @@
 import { StrEnum } from './utils';
 
-export const HttpMethods: string[] = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE', 'OPTIONS', 'CONNECT', 'PATCH'];
+export const HttpMethods: string[] = ['Get', 'Head', 'Post', 'Put', 'Delete', 'Trace', 'Options', 'Connect', 'Patch'];
 export const HttpMethod = StrEnum(HttpMethods);
 export type HttpMethod = keyof typeof HttpMethod;
 

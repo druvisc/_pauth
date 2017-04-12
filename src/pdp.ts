@@ -3,7 +3,7 @@ import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, } from './co
 import * as jp from 'jsonpath';
 import { expect } from 'chai';
 import { Context } from './context';
-import { isBoolean } from './utils';
+import { isBoolean, isArray, isString } from './utils';
 
 const SubscriptStart: string = '[';
 const SubscriptEnd: string = ']';
@@ -191,7 +191,7 @@ export class Pdp {
 
 
   // 7.11. Rule evaluatiion
-  public static evaluateRule(rule: Rule, context/*: Context*/): boolean | Decision {
+  public static evaluateRule(rule: Rule, context/*: Context*/): Effect | Decision {
     const tag: string = `${Pdp.Tag}.${rule.id}.evaluateRule()`;
     // if (Context.Pdp.Debug) console.log(tag, 'rule:', rule);
 
@@ -208,17 +208,43 @@ export class Pdp {
 
     const decision: boolean | Decision = Pdp.evaluateCondition(rule, context);
     if (Context.Pdp.Debug) console.log(tag, 'decision:', decision);
-    return decision === true ? rule.effect : decision;
+    return decision === true ? rule.effect : Decision.NotApplicable;
   }
 
   // TOOD: Pass in target from policy ???
   // 7.7 Target evaluation
   public static evaluateTarget(rule: Rule, context: Context): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.(Rule - ${rule.id}).validateRule()`;
+    const tag: string = `${Pdp.Tag}.(Rule - ${rule.id}).evaluateTarget()`;
+
+    const targetErrors: Error[] = Pdp.validateTarget(rule, context);
+
+    if (Context.Development) expect(targetErrors).to.be.empty;
+    if (Context.Pdp.Debug) targetErrors.forEach(e => console.log(e.message));
+    // TODO: Define fallbacks for each 'error' and use the 'outter' one if more specific ones not defined?
+    if (targetErrors.length) return Context.Pdp.FallbackDecision;
+
+
     if (!rule.target) {
       if (Context.Pdp.Debug) console.log(tag, 'No target - an empty target matches any request.');
       return true;
     }
+
+    let target: any = rule.target || [[]]; // string[][]
+
+    if (!isArray(rule.target)) {
+      return Context.Pdp.FallbackDecision;
+    }
+
+    if (rule.target.length === 0 || !isArray(rule.target[0])) target = [target];
+
+    // if (isString(rule.target[0])) {
+    //   if (!rule.target.every(isString)) return Context.Pdp.FallbackDecision;
+    //   target = [target];
+    // } else if (isArray(rule.target[0])) {
+
+    // }
+
+    // Array.isArray(target) ? target : [target];
 
     const evaluateTargetExpressions = (result, expression) => {
       // If one of the expressions failed for some reason, return Decision.Indeterminate.
@@ -229,39 +255,9 @@ export class Pdp {
       return Pdp.evaluateExpression(expression, context)
     };
 
-    const results: (boolean | Decision)[] = (rule.target.match || []).map(match => {
-      if (Context.Pdp.Debug) console.log(tag, 'match:', match);
-
-      const action: string = match.action || rule.target.action;
-      if (Context.Pdp.Debug) console.log(tag, 'action:', action);
-
-      let resource: (string | string[]) = match.resource || rule.target.resource || [];
-      resource = Array.isArray(resource) ? resource : [resource];
-      if (Context.Pdp.Debug) console.log(tag, 'resource:', resource);
-
-      let subject: (string | string[]) = match.subject || rule.target.subject || [];
-      subject = Array.isArray(subject) ? subject : [subject];
-      if (Context.Pdp.Debug) console.log(tag, 'subject:', subject);
-
-
-      // TODO: !!! USE PIP? !!!
-      const actionResult: boolean = action !== context.action;
-      if (action) {
-        if (Context.Pdp.Debug) console.log(tag, 'actionResult:', actionResult);
-        if (!actionResult) return actionResult;
-      }
-
-      const resourceResult: boolean | Decision = resource.reduce(evaluateTargetExpressions, true);
-      if (Context.Pdp.Debug) console.log(tag, 'resourceResult:', resourceResult);
-      if (resourceResult === Decision.Indeterminate || !resourceResult) return resourceResult;
-
-      const subjectResult: boolean | Decision = subject.reduce(evaluateTargetExpressions, true);
-      if (Context.Pdp.Debug) console.log(tag, 'subjectResult:', subjectResult);
-      if (subjectResult === Decision.Indeterminate || !subjectResult) return subjectResult;
-      // TODO: !!! USE PIP? !!!
-
-
-      return true;
+    const results: (boolean | Decision)[] = target.map(or => {
+      // TODO: Use PIP
+      return or.reduce(evaluateTargetExpressions, true);
     });
     if (Context.Pdp.Debug) console.log(tag, 'results:', results);
 
@@ -270,11 +266,29 @@ export class Pdp {
     if (results.length === falseResults.length) return false;
 
     const result: boolean | Decision = results.reduce((result, v) => {
-      if (result === true) return true;
+      if (result === true || v === true) return true;
+      return v;
     }, Decision.Indeterminate);
     if (Context.Pdp.Debug) console.log(tag, 'result:', result);
 
     return result;
+  }
+
+
+  public static validateTarget(rule: Rule, context: Context): Error[] {
+    const tag: string = `${Pdp.Tag}.validateTarget()`;
+
+    const targetErrors: Error[] = [];
+
+    return [];
+  }
+
+  public static extractTarget(target: string[] | string[][]): string[][] {
+    const tag: string = `${Pdp.Tag}.extractTarget()`;
+
+    // target = Array.isArray(target) ? target : [target];
+
+    return target as string[][];
   }
 
   public static evaluateCondition(rule: Rule, context: Context): boolean | Decision {
@@ -285,9 +299,11 @@ export class Pdp {
       return true;
     }
 
-    const result: boolean | Decision = Pdp.evaluateExpression(rule.condition, context);
-    if (Context.Pdp.Debug) console.log(tag, 'result:', result);
-    return result;
+    // const result: boolean | Decision = Pdp.evaluateExpression(rule.condition, context);
+    // if (Context.Pdp.Debug) console.log(tag, 'result:', result);
+    // return result;
+
+    return Pdp.evaluateExpression(rule.condition, context);
   }
 
   public static evaluateExpression(str: string, context: Context): boolean | Decision {
@@ -312,12 +328,14 @@ export class Pdp {
       if (Context.Pdp.Debug) console.log(tag, 'Couldn\'t execute expression.');
       return Decision.Indeterminate;
     }
+    if (Context.Pdp.Debug) console.log(tag, 'result:', result);
     return result;
   }
 
   public static evaluateTargetElement(rule: Rule, context: Context): /* Decision.Indeterminate | */ boolean {
     return true;
   }
+
 
   public static validateRule(rule: Rule): Error[] {
     const tag: string = `${Pdp.Tag}.validateRule()`;
@@ -353,26 +371,33 @@ export class Pdp {
       }
       if (Context.Pdp.Debug) console.log(tag, 'queryRes:', queryRes);
       str = str.replace(query, queryRes);
+      // Validate query?
       query = Pdp.extractQuery(str);
     }
     if (Context.Pdp.Debug) console.log(tag, 'expression:', str);
     return str;
   }
 
+  // TODO: Needs testing.
   public static extractQuery(str: string): string {
     const tag: string = `${Pdp.Tag}.extractQuery()`;
     const start: number = str.indexOf('$');
+    console.log(tag, 'start:', start);
     if (start === -1) return null;
 
-    const end: number = str.indexOf(' ', start);
+    let end: number = str.indexOf(' ', start);
+    end = end !== -1 ? end : str.length;
+    console.log(tag, 'end:', end);
     const substr: string = str.substring(start, end);
-    const subscriptStartCount: number = strCount(substr, SubscriptStart);
+    console.log(tag, 'substr:', substr);
+    const subscriptStartCount: number = strCount(str, SubscriptStart);
+    console.log(tag, 'subscriptStartCount:', subscriptStartCount);
 
     let query: string = substr;
 
     if (subscriptStartCount > 0) {
       const subscriptEnd: number = indexOfNth(str, SubscriptEnd, subscriptStartCount);
-      query = str.slice(start, subscriptEnd + 1);
+      query = str.slice(start, subscriptEnd);
     }
 
     return query;

@@ -23,6 +23,7 @@ export const ignoreCaseEqual = (str1: string, str2: string): boolean =>
 export const isNull = (v): boolean => v === null;
 export const isArray = (v): boolean => Array.isArray(v);
 export const isUndefined = (v): boolean => v === undefined;
+export const isString = (v): boolean => typeof v === 'string';
 export const isBoolean = (v): boolean => typeof v === 'boolean';
 export const isPresent = (v): boolean => !isNull(v) && !isUndefined(v);
 export const isNumber = (v): boolean => !isNaN(Number(v)) && isFinite(v);

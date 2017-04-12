@@ -89,43 +89,86 @@ describe('Rule', () => {
     //   ]
     // };
 
-    // const targetUnauthenticatedGetAlcohol = {
-    //   // Common action target.
+    // const targetAuthenticatedGetAlcohol = {
     //   action: HttpMethod.Get,
-    //   // Common resource target.
+
+
+    //   // TODO: Either have to append in Pdp '$.resource.route' '$.subject.role',
+    //   // or just make the whole match an array of expressions.
+    //   // Just like XACML gave up seperat attributedesignator thingamajigs?
     //   resource: [
     //     `$.route === /${Controller.Products}/${Products.Alcohol}`
     //   ],
     //   match: [
-    //     // AnyOf (OR)
     //     {
-    //       // AllOf (AND)
-    //       subject: [`$.role === ${Role.Unauthenticated}`],
+    //       subject: [`$.role !== ${Role.Unauthenticated}`],
     //     }
     //   ]
     // };
 
-    const targetAuthenticatedGetAlcohol = {
+
+    const targetUnauthenticatedGetAlcohol0 = {
+      // Common action target.
       action: HttpMethod.Get,
-
-
-      // TODO: Either have to append in Pdp '$.resource.route' '$.subject.role',
-      // or just make the whole match an array of expressions.
-      // Just like XACML gave up seperat attributedesignator thingamajigs?
+      // Common resource target.
       resource: [
         `$.route === /${Controller.Products}/${Products.Alcohol}`
       ],
       match: [
+        // AnyOf (OR)
         {
-          subject: [`$.role !== ${Role.Unauthenticated}`],
+          // AllOf (AND)
+          subject: [`$.role === ${Role.Unauthenticated}`],
         }
       ]
     };
 
+    // (A)
+    // + Most clear, least work to parse.
+    // - Can't set common targets (is this even needed?).
+    const targetAuthenticatedGetAlcohol1 = [
+      // OR
+      [
+        `$.action.method === '${HttpMethod.Get.toUpperCase()}'`,
+        `$.resource.route === '/${Controller.Products}/${Products.Alcohol}'`,
+        `$.subject.role !== '${Role.Unauthenticated}'`
+      ]
+    ];
+
+    // const targetAuthenticatedGetAlcohol111 = {
+    //   common: [
+
+    //   ],
+    //   match: [
+    //     `$.action.method === ${HttpMethod.Get}`,
+    //     `$.resource.route === /${Controller.Products}/${Products.Alcohol}`,
+    //     `$.subject.role !== ${Role.Unauthenticated}`
+    //   ]
+    // };
+
+    // // (B)
+    // // + Possibly slightly less 'noise'.
+    // // - Harder, have to check what goes where, i.e, if not written as `!method === [..]`.
+    // const targetAuthenticatedGetAlcohol3 = [
+    //   {
+    //     common: true,
+    //     action: [
+    //       `method === ${HttpMethod.Get}`
+    //     ],
+    //     resource: [
+    //       `route === /${Controller.Products}/${Products.Alcohol}`
+    //     ],
+    //     subject: [
+    //       `role !== ${Role.Unauthenticated}`
+    //     ],
+    //   }
+    // ];
+
+
     const ofAgeRuleAuthenticated: Rule = {
       id: 1,
       effect: Effect.Permit,
-      target: targetAuthenticatedGetAlcohol,
+      target: targetAuthenticatedGetAlcohol1,
       condition: `$.subject.age > ${ofAgeAge - 1}`,
     }
 
@@ -135,26 +178,32 @@ describe('Rule', () => {
     //   target: targetUnauthenticatedGetAlcohol,
     // }
 
+    const action = {
+      method: `'${HttpMethod.Get.toUpperCase()}'`,
+    }
+
     const resource = {
-      route: `/${Controller.Products}/${Products.Alcohol}`,
+      route: `'/${Controller.Products}/${Products.Alcohol}'`,
     };
 
     const subject = {
+      role: `'${Role.User}'`,
       age: 16,
     };
 
     const context = {
+      action,
       resource,
       subject,
     };
 
-    let decision: boolean | Decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
+    let decision: Effect | Decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
     expect(decision).to.be.equal(Decision.NotApplicable);
 
     subject.age = 21;
 
     decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
-    expect(decision).to.be.equal(Decision.Permit);
+    expect(decision).to.be.equal(Effect.Permit);
 
     console.log(JSON.stringify(ofAgeRuleAuthenticated));
   });
