@@ -1,24 +1,15 @@
-import { PolicySet, Policy, Rule, } from './interfaces';
-import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, } from './constants';
-import * as jp from 'jsonpath';
 import { expect } from 'chai';
-import { Context } from './context';
-import { isBoolean, isArray, isString, isNumber, } from './utils';
-
-const SubscriptStart: string = '[';
-const SubscriptEnd: string = ']';
+import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, } from '../constants';
+import { PolicySet, Policy, Rule, } from '../interfaces';
+import { Singleton } from '../classes/singleton';
+import { Language } from '../language';
+import { Context } from '../context';
+import { isBoolean } from '../utils';
 
 interface Error {
   id: string | number,
   message: string,
 }
-
-
-      // TODO: Allow to define equal operator for properties? See queryRes
-
-
-
-
 
 
 // 7.3.5 Attribute Retrieval 3294
@@ -44,26 +35,6 @@ interface Error {
 // that value. Otherwise, the 3317 context handler SHALL supply a value. In the case of date
 // and time attributes, the supplied value 3318 SHALL have the semantics
 // of the "date and time that apply to the decision request".
-
-
-// Moš kkā atļaut noteikt intervālu? bet jsonpath jau var laikam
-
-// 7.5 Arithmetic evaluation 3390
-// IEEE 754 [IEEE754] specifies how to evaluate arithmetic functions in a context, which specifies defaults 3391 for precision, rounding, etc. XACML SHALL use this specification for the evaluation of all integer and 3392 double functions relying on the Extended Default Context, enhanced with double precision: 3393
-// flags - all set to 0 3394
-// trap-enablers - all set to 0 (IEEE 854 §7) with the exception of the “division-by-zero” trap enabler, 3395 which SHALL be set to 1 3396
-// precision - is set to the designated double precision 3397
-// rounding - is set to round-half-even (IEEE 854 §4.1)
-
-
-
-// 7.19.1 Unsupported functionality
-// If the PDP attempts to evaluate a policy set or policy that contains an optional element
-// type or function that the PDP does not support, then the PDP SHALL return a
-// <Decision> value of "Indeterminate". If a <StatusCode> element is also returned,
-// then its value SHALL be "urn:oasis:names:tc:xacml:1.0:status:syntax-error" in the
-// case of an unsupported element type, and
-// "urn:oasis:names:tc:xacml:1.0:status:processing-error" in the case of an unsupported function.
 
 
 // 7.19.3 Missing attributes
@@ -100,14 +71,14 @@ interface Error {
 
 
 // The system entity that evaluates applicable policy and renders an authorization decision.
-export class Pdp {
+export class Pdp extends Singleton {
   private static readonly Tag: string = 'Pdp';
 
 
   // !!! The procedure for combining the decision and obligations from multiple policies -
   // obligations have to be combined as well!!!
 
-  public static combineDecision(decisionArr: Decision[], combiningAlgorithm: CombiningAlgorithm): Decision {
+  public static CombineDecision(decisionArr: Decision[], combiningAlgorithm: CombiningAlgorithm): Decision {
     const tag: string = `${Pdp.Tag}.evaluatePolicySet()`;
     switch (combiningAlgorithm) {
       case CombiningAlgorithm.DenyOverrides: return Pdp.DenyOverrides(decisionArr);
@@ -148,49 +119,29 @@ export class Pdp {
       decisionArr.length > 1 ? Decision.Indeterminate : decisionArr[0];
   }
 
-  public static evaluatePolicySet(policySet: PolicySet, context: any): Decision {
+  public static EvaluatePolicySet(policySet: PolicySet, context: any): Decision {
     const tag: string = `${Pdp.Tag}.evaluatePolicySet()`;
     if (Context.Pdp.Debug) console.log(tag, 'policySet:', policySet);
-
-    const policySetErrors: Error[] = Pdp.validatePolicySet(policySet);
-
-    if (policySetErrors.length && Context.Pdp.Debug) {
-      console.log(tag, 'Invalid policy set:');
-      policySetErrors.forEach(e => console.log(e.message));
-    }
-
-    if (Context.Development) expect(policySetErrors).to.be.empty;
-    if (policySetErrors.length) return Context.Pdp.FallbackDecision;
 
     // TODO: Retrieve policies or ar they resolved here if attached to a resource..?
     // Can be resolved at some point.
     const decisionArr: Decision[] = [
-      ...(policySet.policies || []).map(p => Pdp.evaluatePolicy(p, context)),
-      ...(policySet.policySets || []).map(ps => Pdp.evaluatePolicySet(ps, context))
+      ...(policySet.policies || []).map(p => Pdp.EvaluatePolicy(p, context)),
+      ...(policySet.policySets || []).map(ps => Pdp.EvaluatePolicySet(ps, context))
     ];
 
-    const decision: Decision = Pdp.combineDecision(decisionArr, policySet.combiningAlgorithm);
+    const decision: Decision = Pdp.CombineDecision(decisionArr, policySet.combiningAlgorithm);
 
     return decision;
   }
 
-  public static validatePolicySet(policySet: PolicySet): Error[] {
-    const tag: string = `${Pdp.Tag}.validatePolicySet()`;
-    return [];
-  }
 
-  public static evaluatePolicy(policy: Policy, context: Context): Decision {
+  public static EvaluatePolicy(policy: Policy, context: Context): Decision {
     const tag: string = `${Pdp.Tag}.evaluatePolicy()`;
-    Pdp.validatePolicy(policy);
-    const decisionArr: (boolean | Decision)[] = policy.rules.map(r => Pdp.evaluateRule(r, context));
+    const decisionArr: (boolean | Decision)[] = policy.rules.map(r => Pdp.EvaluateRule(r, context));
     policy.combiningAlgorithm
 
     return Decision.Permit;
-  }
-
-  public static validatePolicy(policy: Policy): boolean {
-    const tag: string = `${Pdp.Tag}.validatePolicy()`;
-    return true;
   }
 
 
@@ -199,60 +150,26 @@ export class Pdp {
 
 
   // 7.11. Rule evaluatiion
-  public static evaluateRule(rule: Rule, context/*: Context*/): Effect | Decision {
+  public static EvaluateRule(rule: Rule, context/*: Context*/): Effect | Decision {
     const tag: string = `${Pdp.Tag}.${rule.id}.evaluateRule()`;
     // if (Context.Pdp.Debug) console.log(tag, 'rule:', rule);
 
-    const ruleErrors: Error[] = Pdp.validateRule(rule);
-
-    if (Context.Development) expect(ruleErrors).to.be.empty;
-    if (Context.Pdp.Debug) ruleErrors.forEach(e => console.log(e.message));
-    if (ruleErrors.length) return Context.Pdp.FallbackDecision;
-
-    const targetMatch: boolean | Decision = Pdp.evaluateTarget(rule, context);
+    const targetMatch: boolean | Decision = Pdp.EvaluateTarget(rule, context);
     if (Context.Pdp.Debug) console.log(tag, 'targetMatch:', targetMatch);
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
-    const decision: boolean | Decision = Pdp.evaluateCondition(rule, context);
+    const decision: boolean | Decision = Pdp.EvaluateCondition(rule, context);
     if (Context.Pdp.Debug) console.log(tag, 'decision:', decision);
     return decision === true ? rule.effect : Decision.NotApplicable;
   }
 
   // TOOD: Pass in target from policy ???
   // 7.7 Target evaluation
-  public static evaluateTarget(rule: Rule, context: Context): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.(Rule - ${rule.id}).evaluateTarget()`;
+  public static EvaluateTarget(rule: Rule, context: Context): boolean | Decision {
+    const tag: string = `${Pdp.Tag}.(Rule - ${rule.id}).EvaluateTarget()`;
 
-    const targetErrors: Error[] = Pdp.validateTarget(rule, context);
-
-    if (Context.Development) expect(targetErrors).to.be.empty;
-    if (Context.Pdp.Debug) targetErrors.forEach(e => console.log(e.message));
-    // TODO: Define fallbacks for each 'error' and use the 'outter' one if more specific ones not defined?
-    if (targetErrors.length) return Context.Pdp.FallbackDecision;
-
-
-    if (!rule.target) {
-      if (Context.Pdp.Debug) console.log(tag, 'No target - an empty target matches any request.');
-      return true;
-    }
-
-    let target: any = rule.target || [[]]; // string[][]
-
-    if (!isArray(rule.target)) {
-      return Context.Pdp.FallbackDecision;
-    }
-
-    if (rule.target.length === 0 || !isArray(rule.target[0])) target = [target];
-
-    // if (isString(rule.target[0])) {
-    //   if (!rule.target.every(isString)) return Context.Pdp.FallbackDecision;
-    //   target = [target];
-    // } else if (isArray(rule.target[0])) {
-
-    // }
-
-    // Array.isArray(target) ? target : [target];
+    const anyOf: string[][] = rule.target;
 
     const evaluateTargetExpressions = (result, expression) => {
       // If one of the expressions failed for some reason, return Decision.Indeterminate.
@@ -260,12 +177,12 @@ export class Pdp {
       // If one of the expressions evaluated to false, the target is not a match.
       if (result === false) return false;
       // Otherwise return the evaluated expression (true).
-      return Pdp.evaluateExpression(expression, context)
+      return Pdp.ExpressionToDecision(expression, context)
     };
 
-    const results: (boolean | Decision)[] = target.map(or => {
+    const results: (boolean | Decision)[] = anyOf.map(allOf => {
       // TODO: Use PIP
-      return or.reduce(evaluateTargetExpressions, true);
+      return allOf.reduce(evaluateTargetExpressions, true);
     });
     if (Context.Pdp.Debug) console.log(tag, 'results:', results);
 
@@ -282,16 +199,7 @@ export class Pdp {
     return result;
   }
 
-
-  public static validateTarget(rule: Rule, context: Context): Error[] {
-    const tag: string = `${Pdp.Tag}.validateTarget()`;
-
-    const targetErrors: Error[] = [];
-
-    return [];
-  }
-
-  public static extractTarget(target: string[] | string[][]): string[][] {
+  public static ExtractTarget(target: string[] | string[][]): string[][] {
     const tag: string = `${Pdp.Tag}.extractTarget()`;
 
     // target = Array.isArray(target) ? target : [target];
@@ -299,24 +207,26 @@ export class Pdp {
     return target as string[][];
   }
 
-  public static evaluateCondition(rule: Rule, context: Context): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.(Rule - ${rule.id}).evaluateCondition()`;
+  public static EvaluateCondition(rule: Rule, context: Context): boolean | Decision {
+    const tag: string = `${Pdp.Tag}.(Rule - ${rule.id}).EvaluateCondition()`;
     if (Context.Pdp.Debug) console.log(tag, 'rule.condition:', rule.condition);
     if (!rule.condition) {
       if (Context.Pdp.Debug) console.log(tag, 'No condition - evaluates to true.');
       return true;
     }
 
-    // const result: boolean | Decision = Pdp.evaluateExpression(rule.condition, context);
+    // const result: boolean | Decision = Pdp.ExpressionToDecision(rule.condition, context);
     // if (Context.Pdp.Debug) console.log(tag, 'result:', result);
     // return result;
 
-    return Pdp.evaluateExpression(rule.condition, context);
+    return Pdp.ExpressionToDecision(rule.condition, context);
   }
 
-  public static evaluateExpression(str: string, context: Context): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.evaluateExpression()`;
-    const expression: string = Pdp.strToExpression(str, context);
+
+  // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
+  public static ExpressionToDecision(str: string, context: Context): boolean | Decision {
+    const tag: string = `${Pdp.Tag}.ExpressionToDecision()`;
+    const expression: string = Language.StrToExpression(str, context);
     if (Context.Pdp.Debug) console.log(tag, 'expression:', expression);
     if (!expression) {
       if (Context.Pdp.Debug) console.log(tag, 'String evaluted to an invalid expression.');
@@ -343,83 +253,5 @@ export class Pdp {
   public static evaluateTargetElement(rule: Rule, context: Context): /* Decision.Indeterminate | */ boolean {
     return true;
   }
-
-
-  public static validateRule(rule: Rule): Error[] {
-    const tag: string = `${Pdp.Tag}.validateRule()`;
-
-    // Validate on every evaluation call?
-    // Probably would be better to validate rules, policies and policy sets on run time.
-    // Less possibility for errors and no redundant validation.
-    // Stil need this method, tho.
-
-    // Could create a Rule class as well. Would validate on construction and serves as a type.
-
-    // Can rules, polciies, policy sets be modified whilst running? Then need to check every time.
-
-    return [];
-  }
-
-
-
-
-  // TODO: Move out to languageProcessor.ts or something.
-  public static strToExpression(str: string, context: Context): string {
-    const tag: string = `${Pdp.Tag}.strToExpression()`;
-    if (Context.Pdp.Debug) console.log(tag, 'str:', str);
-    let query: string = Pdp.extractQuery(str);
-    let queryRes: any;
-    while (query) {
-      if (Context.Pdp.Debug) console.log(tag, 'query:', query);
-      try {
-        queryRes = jp.query(context, query)[0];
-      } catch (err) {
-        if (Context.Pdp.Debug) console.log(tag, 'Invalid query:', query);
-        return null;
-      }
-      // TODO: Allow to define equal operator for properties?
-      if (!isNumber(queryRes)) queryRes = `'${queryRes}'`;
-      if (Context.Pdp.Debug) console.log(tag, 'queryRes:', queryRes);
-      str = str.replace(query, queryRes);
-      // Validate query?
-      query = Pdp.extractQuery(str);
-    }
-    if (Context.Pdp.Debug) console.log(tag, 'expression:', str);
-    return str;
-  }
-
-  // TODO: Needs testing.
-  public static extractQuery(str: string): string {
-    const tag: string = `${Pdp.Tag}.extractQuery()`;
-    const start: number = str.indexOf('$');
-    console.log(tag, 'start:', start);
-    if (start === -1) return null;
-
-    let end: number = str.indexOf(' ', start);
-    end = end !== -1 ? end : str.length;
-    console.log(tag, 'end:', end);
-    const substr: string = str.substring(start, end);
-    console.log(tag, 'substr:', substr);
-    const subscriptStartCount: number = strCount(str, SubscriptStart);
-    console.log(tag, 'subscriptStartCount:', subscriptStartCount);
-
-    let query: string = substr;
-
-    if (subscriptStartCount > 0) {
-      const subscriptEnd: number = indexOfNth(str, SubscriptEnd, subscriptStartCount);
-      query = str.slice(start, subscriptEnd);
-    }
-
-    return query;
-  }
 }
-
-function strCount(str: string, substr: string): number {
-  return str.split(substr).length - 1;
-}
-
-function indexOfNth(str: string, substr, index: number) {
-  return str.split(substr, index).join(substr).length;
-}
-
 

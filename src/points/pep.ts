@@ -1,6 +1,7 @@
-import { Decision, Effect, PepBias, } from './constants';
-import { Obligation, Advice } from './interfaces';
-import { isArray } from './utils';
+import { Decision, Effect, PepBias, } from '../constants';
+import { Obligation, Advice } from '../interfaces';
+import { isArray } from '../utils';
+import { Singleton } from '../classes/singleton';
 
 const context: any = {};
 
@@ -16,7 +17,7 @@ const context: any = {};
 // authorization decision as described in one of the following sub-sections.
 // In any case any advice in the decision may be safely ignored by the PEP.
 
-class Pep {
+class Pep extends Singleton {
   private static readonly Tag: string = 'Pep';
 
   public static evaluateDecision(decision: Decision) {
