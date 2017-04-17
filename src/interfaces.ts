@@ -6,47 +6,47 @@ import { Effect, AuthorizationDecision, Decision, CombiningAlgorithm, PepBias, S
 //  A component of a policy
 // If target or resource absent, same as policy
 
-export interface TargetSet {
-  action?: HttpMethod
-  subject?: string[]
-  resource?: string[]
-}
 
 // 5.21 Element <Rule>
+// The <Target> element may be absent from a <Rule>. In this case,
+// the target of the <Rule> is the 536 same as that of the parent <Policy> element.
 export interface Rule {
   // A string identifying this rule.
-  id: string | number
+  id: string | number;
 
   // Rule effect. The value of this attribute is either “Permit” or “Deny”.
-  effect: Effect
+  effect: Effect;
 
   // A free-form description of the rule.
-  description?: string
+  description?: string;
 
   // Identifies the set of decision requests that the <Rule> element is intended
   // to evaluate. If this element is omitted, then the target for the <Rule>
   // SHALL be defined by the <Target> element  of the enclosing <Policy> element.
-  target: string[][]
+  target?: string[][];
+
+  // Condition represents a Boolean expression that refines the applicability of the rule
+  // beyond the predicates implied by its target. Therefore, it may be absent.
 
   // A predicate that MUST be satisfied for the rule to be assigned its Effect value.
   // TODO: allow array for multiple expressions or just one condition expression?
-  condition?: string // []
+  condition?: string; // []
 
   // A conjunctive sequence of obligation expressions which MUST be evaluated
   // into obligations byt the PDP. The corresponsding obligations MUST be fulfilled
   // by the PEP in conjunction with 2272 the authorization decision.
   // See 7.18, 7.2.
-  obligations?: Obligation[]
+  obligations?: Obligation[];
 
   // A conjunctive sequence of advice expressions which MUST evaluated
   // into advice by the PDP. The corresponding advice provide supplementary
   // information to the PEP in conjunction with the  authorization decision.
   // See 7.18.
-  advice?: Advice[]
+  advice?: Advice[];
 }
 
 export interface Resource {
-  url: string
+  url: string;
 }
 
 
@@ -55,7 +55,9 @@ export interface Policy {
   // A sequence of rules that MUST be combined according to the RuleCombiningAlgId attribute.
   // Rules whose <Target> elements and conditions match the decision request MUST be considered.
   // Rules whose <Target> elements or conditions do not match the decision request SHALL be ignored.
-  rules: Rule[]
+    id: string | number
+
+  rules?: Rule[]
 
   // The <Target> element defines the applicability of a <Policy> to a set of decision requests.
   // The <Target> element MAY be declared by the creator of the <Policy> element,
@@ -68,16 +70,22 @@ export interface Policy {
 
   // Perhaps it's meant as to evaluate the target at initialzation as an union or intersection
   // between ALL of the rules and not between the Policy.target and Rule.target?
-  target: string // jsonpath?
-  combiningAlgorithm: CombiningAlgorithm
-  advice: Advice[]
+  target?: string[][] // jsonpath?
+  combiningAlgorithm: CombiningAlgorithm;
+  advice?: Advice[];
 }
 
+// <Target> [Required]
+// The <Target> element defines the applicability of a policy set to a set of decision requests.
+// The <Target> element MAY be declared by the creator of the <PolicySet> or it MAY be computed
+// from the <Target> elements of the referenced <Policy> elements, either as an intersection or as a union.
+
 export interface PolicySet {
-  policies: Policy[]
-  policySets: PolicySet[]
-  target?: string // jsonpath?
-  combiningAlgorithm: CombiningAlgorithm
+  id: string | number;
+  target?: string[][];
+  policies?: Policy[];
+  policySets?: PolicySet[];
+  combiningAlgorithm: CombiningAlgorithm;
 }
 
 // A supplementary piece of information in a policy or policy set

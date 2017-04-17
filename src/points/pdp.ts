@@ -5,10 +5,15 @@ import { Singleton } from '../classes/singleton';
 import { Language } from '../language';
 import { Context } from '../context';
 import { isBoolean } from '../utils';
+import { Prp } from './prp';
+
+// Create rules, policies, policy sets. Reference them by the id.!!!!
+//  <AttributeDesignator> - value in request context
+
 
 interface Error {
-  id: string | number,
-  message: string,
+  id: string | number;
+  message: string;
 }
 
 
@@ -70,88 +75,76 @@ interface Error {
 // 'OnlyOneApplicable'
 
 
+
+// <Target> [Required]
+// The <Target> element defines the applicability of a policy set to a set of decision requests.
+// The <Target> element MAY be declared by the creator of the <PolicySet> or it MAY be computed
+// from the <Target> elements of the referenced <Policy> elements, either as an intersection or as a union.
+
 // The system entity that evaluates applicable policy and renders an authorization decision.
 export class Pdp extends Singleton {
   private static readonly Tag: string = 'Pdp';
 
+  // The PDP processing this request context locates the policy in its policy repository.
+  // It compares the 802 attributes in the request context with the policy target.
+  // Since the policy target is empty, the policy 803 matches this context. 804
+  // The PDP now compares the attributes in the request context with the target of the one
+  // rule in this 805 policy. The requested resource matches the <Target> element and the
+  // requested action matches the 806 <Target> element, but the requesting
+  // subject-id attribute does not match "med.example.com".
 
-  // !!! The procedure for combining the decision and obligations from multiple policies -
-  // obligations have to be combined as well!!!
-
-  public static CombineDecision(decisionArr: Decision[], combiningAlgorithm: CombiningAlgorithm): Decision {
-    const tag: string = `${Pdp.Tag}.evaluatePolicySet()`;
-    switch (combiningAlgorithm) {
-      case CombiningAlgorithm.DenyOverrides: return Pdp.DenyOverrides(decisionArr);
-      case CombiningAlgorithm.PermitOverrides: return Pdp.PermitOverrides(decisionArr);
-      case CombiningAlgorithm.FirstApplicable: return Pdp.FirstApplicable(decisionArr);
-      case CombiningAlgorithm.OnlyOneApplicable: return Pdp.OnlyOneApplicable(decisionArr);
-      default:
-        if (Context.Pdp.Debug) console.log(tag, 'Invalid combiningAlgorithm:', combiningAlgorithm,
-          '. Will use the Pdp.FallbackDecision:', Decision[Context.Pdp.FallbackDecision]);
-        if (Context.Development) expect(combiningAlgorithm).to.be.oneOf(CombiningAlgorithms);
-        return Context.Pdp.FallbackDecision;
-    }
-  }
-
-
-  // If all rules evaluate to “Permit”, then the policy must return 708 “Permit”.
-  // The rule-combining algorithm, which is fully described in Appendix Appendix C,
-  // also says 709 what to do if an error were to occur when evaluating any rule,
-  // and what to do with rules that do not apply 710 to a particular decision request.
-  public static DenyOverrides(decisionArr: Decision[]) {
-    decisionArr = decisionArr.filter(d => d === Decision.Deny);
-    return decisionArr.length > 0 ? Decision.Deny : Decision.Permit;
-  }
-
-  public static PermitOverrides(decisionArr: Decision[]) {
-    decisionArr = decisionArr.filter(d => d === Decision.Permit);
-    return decisionArr.length > 0 ? Decision.Permit : Decision.Deny;
-  }
-
-  public static FirstApplicable(decisionArr: Decision[]) {
-    decisionArr = decisionArr.filter(d => d !== Decision.NotApplicable);
-    return decisionArr.length > 0 ? decisionArr[0] : Decision.NotApplicable;
-  }
-
-  public static OnlyOneApplicable(decisionArr: Decision[]) {
-    decisionArr = decisionArr.filter(d => d === Decision.NotApplicable);
-    return decisionArr.length === 0 ? Decision.NotApplicable :
-      decisionArr.length > 1 ? Decision.Indeterminate : decisionArr[0];
+  public static EvaluateDecisionRequest(context: Context): Decision {
+    const tag: string = `${Pdp.Tag}.EvaluateDecisionRequest()`;
+    const policies: (Policy | PolicySet)[] = Prp.RetrievePolicies(context);
+    if (Context.Pdp.Debug) console.log(tag, 'policies:', policies);
+    const decisions: Decision[] = policies.map(policy => Pdp.IsPolicySet(policy) ?
+      Pdp.EvaluatePolicySet(policy, context) : Pdp.EvaluatePolicy(policy, context));
+    if (Context.Pdp.Debug) console.log(tag, 'decisions:', decisions);
+    const decision: Decision = Pdp.CombineDecision(decisions, Context.Pdp.CombiningAlgorithm);
+    if (Context.Pdp.Debug) console.log(tag, 'decision:', decision);
+    return decision;
   }
 
   public static EvaluatePolicySet(policySet: PolicySet, context: any): Decision {
-    const tag: string = `${Pdp.Tag}.evaluatePolicySet()`;
+    const tag: string = `${Pdp.Tag}.EvaluatePolicySet()`;
     if (Context.Pdp.Debug) console.log(tag, 'policySet:', policySet);
 
-    // TODO: Retrieve policies or ar they resolved here if attached to a resource..?
-    // Can be resolved at some point.
-    const decisionArr: Decision[] = [
-      ...(policySet.policies || []).map(p => Pdp.EvaluatePolicy(p, context)),
+    const targetMatch: boolean | Decision = Pdp.EvaluateTarget(policySet, context);
+    if (Context.Pdp.Debug) console.log(tag, 'targetMatch:', targetMatch);
+    if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
+    if (!targetMatch) return Decision.NotApplicable;
+
+    // TODO: Have to either pass in policy set (or it's target) or the policy set's id
+    // and then retrieve the policy to sub policies and policy sets.
+
+    // Create hashmap with accesed attributes in target, retrieve only matching policies (save id there)
+    const decisions: Decision[] = [
+      ...(policySet.policies || []).map(p => Pdp.EvaluatePolicy(p, context, )),
       ...(policySet.policySets || []).map(ps => Pdp.EvaluatePolicySet(ps, context))
     ];
 
-    const decision: Decision = Pdp.CombineDecision(decisionArr, policySet.combiningAlgorithm);
+    const decision: Decision = Pdp.CombineDecision(decisions, policySet.combiningAlgorithm);
 
     return decision;
   }
 
+  public static IsPolicySet(v: any): boolean {
+    return v.policies || v.policySets || v.p
+  }
 
   public static EvaluatePolicy(policy: Policy, context: Context): Decision {
-    const tag: string = `${Pdp.Tag}.evaluatePolicy()`;
-    const decisionArr: (boolean | Decision)[] = policy.rules.map(r => Pdp.EvaluateRule(r, context));
+    const tag: string = `${Pdp.Tag}.EvaluatePolicy()`;
+    const decisions: (boolean | Decision)[] = policy.rules.map(r => Pdp.EvaluateRule(r, context));
+
+    //
     policy.combiningAlgorithm
 
     return Decision.Permit;
   }
 
-
-  //  <AttributeDesignator> - value in request context
-
-
-
   // 7.11. Rule evaluatiion
   public static EvaluateRule(rule: Rule, context/*: Context*/): Effect | Decision {
-    const tag: string = `${Pdp.Tag}.${rule.id}.evaluateRule()`;
+    const tag: string = `${Pdp.Tag}.${rule.id}.EvaluateRule()`;
     // if (Context.Pdp.Debug) console.log(tag, 'rule:', rule);
 
     const targetMatch: boolean | Decision = Pdp.EvaluateTarget(rule, context);
@@ -159,34 +152,22 @@ export class Pdp extends Singleton {
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
+    // TODO: !!! EVALUATE AND ADD ADVICES AND OBLIGATIONS !!!
     const decision: boolean | Decision = Pdp.EvaluateCondition(rule, context);
     if (Context.Pdp.Debug) console.log(tag, 'decision:', decision);
     return decision === true ? rule.effect : Decision.NotApplicable;
   }
 
-  // TOOD: Pass in target from policy ???
+
   // 7.7 Target evaluation
-  public static EvaluateTarget(rule: Rule, context: Context): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.(Rule - ${rule.id}).EvaluateTarget()`;
+  public static EvaluateTarget(element: Rule | Policy | PolicySet, context: Context): boolean | Decision {
+    const tag: string = `${Pdp.Tag}.(Element - ${element.id}).EvaluateTarget()`;
+    const anyOf: string[][] = element.target;
 
-    const anyOf: string[][] = rule.target;
-
-    const evaluateTargetExpressions = (result, expression) => {
-      // If one of the expressions failed for some reason, return Decision.Indeterminate.
-      if (result === Decision.Indeterminate) return Decision.Indeterminate;
-      // If one of the expressions evaluated to false, the target is not a match.
-      if (result === false) return false;
-      // Otherwise return the evaluated expression (true).
-      return Pdp.ExpressionToDecision(expression, context)
-    };
-
-    const results: (boolean | Decision)[] = anyOf.map(allOf => {
-      // TODO: Use PIP
-      return allOf.reduce(evaluateTargetExpressions, true);
-    });
+    const results: (boolean | Decision)[] = anyOf.map(allOf => Pdp.EvaluateAllOf(allOf, context));
     if (Context.Pdp.Debug) console.log(tag, 'results:', results);
 
-    const falseResults: (boolean | Decision)[] = results.filter(r => !r);
+    const falseResults: (boolean | Decision)[] = results.filter(r => r === false);
     if (Context.Pdp.Debug) console.log(tag, 'falseResults:', falseResults);
     if (results.length === falseResults.length) return false;
 
@@ -197,14 +178,6 @@ export class Pdp extends Singleton {
     if (Context.Pdp.Debug) console.log(tag, 'result:', result);
 
     return result;
-  }
-
-  public static ExtractTarget(target: string[] | string[][]): string[][] {
-    const tag: string = `${Pdp.Tag}.extractTarget()`;
-
-    // target = Array.isArray(target) ? target : [target];
-
-    return target as string[][];
   }
 
   public static EvaluateCondition(rule: Rule, context: Context): boolean | Decision {
@@ -221,7 +194,6 @@ export class Pdp extends Singleton {
 
     return Pdp.ExpressionToDecision(rule.condition, context);
   }
-
 
   // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
   public static ExpressionToDecision(str: string, context: Context): boolean | Decision {
@@ -250,8 +222,74 @@ export class Pdp extends Singleton {
     return result;
   }
 
-  public static evaluateTargetElement(rule: Rule, context: Context): /* Decision.Indeterminate | */ boolean {
-    return true;
+  public static EvaluateAllOf(allOf: string[], context: Context): boolean | Decision {
+    return allOf.reduce((result, expression) => {
+      // If one of the expressions failed for some reason, return Decision.Indeterminate.
+      if (result === Decision.Indeterminate) return Decision.Indeterminate;
+      // If one of the expressions evaluated to false, the target is not a match.
+      if (result === false) return false;
+      // Otherwise return the evaluated expression (true).
+      return Pdp.ExpressionToDecision(expression, context);
+    }, true as boolean | Decision);
+  }
+
+  // !!! The procedure for combining the decision and obligations from multiple policies -
+  // obligations have to be combined as well!!!
+
+  public static CombineDecision(decisions: Decision[], combiningAlgorithm: CombiningAlgorithm): Decision {
+    const tag: string = `${Pdp.Tag}.EvaluatePolicySet()`;
+    switch (combiningAlgorithm) {
+      case CombiningAlgorithm.DenyOverrides: return Pdp.DenyOverrides(decisions);
+      case CombiningAlgorithm.PermitOverrides: return Pdp.PermitOverrides(decisions);
+      case CombiningAlgorithm.FirstApplicable: return Pdp.FirstApplicable(decisions);
+      case CombiningAlgorithm.OnlyOneApplicable: return Pdp.OnlyOneApplicable(decisions);
+      default:
+        if (Context.Pdp.Debug) console.log(tag, 'Invalid combiningAlgorithm:', combiningAlgorithm,
+          '. Will use the Pdp.FallbackDecision:', Decision[Context.Pdp.FallbackDecision]);
+        if (Context.Development) expect(combiningAlgorithm).to.be.oneOf(CombiningAlgorithms);
+        return Context.Pdp.FallbackDecision;
+    }
+  }
+
+    public static EvaluateRules(rules: Rule[], combiningAlgorithm: CombiningAlgorithm): Decision {
+    const tag: string = `${Pdp.Tag}.EvaluatePolicySet()`;
+
+    switch (combiningAlgorithm) {
+      case CombiningAlgorithm.DenyOverrides: return Pdp.DenyOverrides(decisions);
+      case CombiningAlgorithm.PermitOverrides: return Pdp.PermitOverrides(decisions);
+      case CombiningAlgorithm.FirstApplicable: return Pdp.FirstApplicable(decisions);
+      case CombiningAlgorithm.OnlyOneApplicable: return Pdp.OnlyOneApplicable(decisions);
+      default:
+        if (Context.Pdp.Debug) console.log(tag, 'Invalid combiningAlgorithm:', combiningAlgorithm,
+          '. Will use the Pdp.FallbackDecision:', Decision[Context.Pdp.FallbackDecision]);
+        if (Context.Development) expect(combiningAlgorithm).to.be.oneOf(CombiningAlgorithms);
+        return Context.Pdp.FallbackDecision;
+    }
+  }
+
+  // If all rules evaluate to “Permit”, then the policy must return 708 “Permit”.
+  // The rule-combining algorithm, which is fully described in Appendix Appendix C,
+  // also says 709 what to do if an error were to occur when evaluating any rule,
+  // and what to do with rules that do not apply 710 to a particular decision request.
+  public static DenyOverrides(decisions: Decision[]) {
+    decisions = decisions.filter(d => d === Decision.Deny);
+    return decisions.length > 0 ? Decision.Deny : Decision.Permit;
+  }
+
+  public static PermitOverrides(decisions: Decision[]) {
+    decisions = decisions.filter(d => d === Decision.Permit);
+    return decisions.length > 0 ? Decision.Permit : Decision.Deny;
+  }
+
+  public static FirstApplicable(decisions: Decision[]) {
+    decisions = decisions.filter(d => d !== Decision.NotApplicable);
+    return decisions.length > 0 ? decisions[0] : Decision.NotApplicable;
+  }
+
+  public static OnlyOneApplicable(decisions: Decision[]) {
+    decisions = decisions.filter(d => d === Decision.NotApplicable);
+    return decisions.length === 0 ? Decision.NotApplicable :
+      decisions.length > 1 ? Decision.Indeterminate : decisions[0];
   }
 }
 

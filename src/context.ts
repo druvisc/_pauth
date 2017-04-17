@@ -1,5 +1,5 @@
-import { PepBias, Effect, Environment, Decision, Operation, } from './constants';
-import { Context as IContext} from './interfaces';
+import { PepBias, Effect, Environment, Decision, Operation, CombiningAlgorithm,} from './constants';
+import { Context as IContext } from './interfaces';
 
 // Context - The canonical representation of a decision request and an authorization decision.
 // Context handler - The system entity that converts decision requests in the native request
@@ -33,19 +33,22 @@ import { Context as IContext} from './interfaces';
 // (That is, every subsequent test of that attribute shall use 3313 the same bag of
 // values that was initially tested.)
 
+
 export class Context /* implements IContext*/ {
 
   action: string;
 
-  public static readonly PepBias: PepBias.Deny
+  public static readonly PepBias: PepBias.Deny;
   public static readonly Environment: Environment;
   public static readonly Development: boolean = Context.Environment === Environment.Development;
   public static readonly Pep = {
     Debug: false,
     FallbackEffect: Effect.Deny as Effect,
-  }
+  };
+
   public static readonly Pdp = {
     Debug: true,
+    CombiningAlgorithm: CombiningAlgorithm.PermitUnlessDeny as CombiningAlgorithm,
     // The fallback decision when:
     // a) a rule, policy or a policy set isn't valid
     // (What happens when a rule within a policy or
@@ -54,18 +57,26 @@ export class Context /* implements IContext*/ {
     FallbackDecision: Decision.Deny as Decision,
 
 
-    TargetOperation: Operation.Intersection as Operation,
-  }
+    TargetOperation: Operation.Intersection as Operation, // !!!
+  };
 
   public static readonly Pip = {
     Debug: false,
-  }
+  };
 
   public static readonly Prp = {
     Debug: false,
-  }
+  };
 
   public static readonly Pap = {
     Debug: false,
-  }
+  };
+
+  public static readonly Language = {
+    Debug: false,
+  };
+
+  public static readonly Validate = {
+    Debug: false,
+  };
 }

@@ -1,4 +1,22 @@
+let subject =  {
+  age: 16,
+  name: undefined,
+};
+
+
+    // Create hashmap with accesed attributes in target, retrieve only matching policies (save id there)
+
+
+
 // boot up, validate the policies
+// bootstrap makes sure everything is like it's specified (how it should be)
+// a) make target into string[][]
+// b) create target when no target specified for policy/policyset
+
+    // TODO: !!! Either here or in bootstrap.ts enforce target on Policy and Policy Set !!!
+    // TODO: !!! Either here or in bootstrap.ts enforce target on Policy and Policy Set !!
+  // TOOD: Pass in target from policy ???
+
 
     // const policySetErrors: Error[] = Pdp.validatePolicySet(policySet);
 
@@ -62,3 +80,13 @@
     // // }
 
     // // Array.isArray(target) ? target : [target];
+
+
+
+  //     public static ExtractTarget(target: string[] | string[][]): string[][] {
+  //   const tag: string = `${Pdp.Tag}.extractTarget()`;
+
+  //   // target = Array.isArray(target) ? target : [target];
+
+  //   return target as string[][];
+  // }

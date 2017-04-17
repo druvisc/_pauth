@@ -5,56 +5,28 @@ import { Pdp } from '../points/pdp';
 import { Effect, Decision, HttpMethod, } from '../constants';
 import { Rule } from '../interfaces';
 
-// Create rules, policies, policy sets. Reference them by the id.!!!!
-
-
 describe('Rule', () => {
   it('subject should be tested', () => {
-    const ofAgeAge: number = 18;
+    const ofAge: number = 18;
 
     const Role = {
       User: 'user',
       Unauthenticated: 'unauthenticated',
-    }
+    };
 
     const Controller = {
       Products: 'products'
-    }
+    };
 
     const Products = {
       Alcohol: 'alcohol',
-    }
+    };
 
     const Alcohol = {
       SpecialOffers: 'specialoffers',
-    }
+    };
 
-    // const subjectOfAgeAuthenticated: string[] = [
-    //   `$.role !== ${Role.Unauthenticated}`,
-    //   `$.age >= ${ofAgeAge}`
-    // ];
-
-    // const subjectConfirmedAgeUnauthenticated: string[] = [
-    //   `!$.role || $.role === ${Role.Unauthenticated}`,
-    //   `$.confirmedAge >= ${ofAgeAge}`
-    // ];
-
-    // const targetUnauthenticatedGetAlcohol0 = {
-    //   // Common action target.
-    //   action: HttpMethod.Get,
-    //   // Common resource target.
-    //   resource: [
-    //     `$.route === /${Controller.Products}/${Products.Alcohol}`
-    //   ],
-    //   match: [
-    //     [
-    //       `$.role === ${Role.Unauthenticated}`
-    //     ]
-    //   ]
-    // };
-
-    const targetAuthenticatedAlcohol = [
-      // OR
+    const targetAuthenticatedAlcohol: string[][] = [
       [
         `$.resource.route === '/${Controller.Products}/${Products.Alcohol}'`,
         `$.subject.role !== '${Role.Unauthenticated}'`
@@ -65,18 +37,12 @@ describe('Rule', () => {
       id: 1,
       effect: Effect.Permit,
       target: targetAuthenticatedAlcohol,
-      condition: `$.subject.age >= ${ofAgeAge}`,
-    }
-
-    // const ofAgeRuleUnuthenticated: Rule = {
-    //   id: 2,
-    //   effect: Effect.Permit,
-    //   target: targetUnauthenticatedGetAlcohol,
-    // }
+      condition: `$.subject.age >= ${ofAge}`,
+    };
 
     const action = {
       method: `${HttpMethod.Get.toUpperCase()}`,
-    }
+    };
 
     const resource = {
       route: `/${Controller.Products}/${Products.Alcohol}`,

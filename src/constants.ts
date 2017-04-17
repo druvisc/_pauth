@@ -4,8 +4,7 @@ export const HttpMethods: string[] = ['Get', 'Head', 'Post', 'Put', 'Delete', 'T
 export const HttpMethod = StrEnum(HttpMethods);
 export type HttpMethod = keyof typeof HttpMethod;
 
-
-export const Operations: string[] = ['Intersection', 'Union']
+export const Operations: string[] = ['Intersection', 'Union'];
 export const Operation = StrEnum(Operations);
 export type Operation = keyof typeof Operation;
 
