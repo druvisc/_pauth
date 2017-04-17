@@ -1,16 +1,12 @@
 {
   "compilerOptions": {
-    "strict": true,
+    "alwaysStrict": true,
     "target": "es5",
     "module": "commonjs",
     "moduleResolution": "node",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "types": [
-      "node",
-      "plotly.js"
-    ],
     "lib": [
       "dom",
       "es6",

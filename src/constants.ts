@@ -93,11 +93,9 @@ export type Environment = keyof typeof Environment;
 // The final decision returned by a PDP cannot be an extended Indeterminate.
 // Any such decision at the top level policy or policy set is returned as a plain
 // Indeterminate in the response from the PDP.
-export enum Indeterminate {
-  Deny,
-  Permit,
-  DenyPermit,
-}
+export const Indeterminates: string[] = ['Deny', 'Permit', 'DenyPermit'];
+export const Indeterminate = StrEnum(Indeterminates);
+export type Indeterminate = keyof typeof Environment;
 
 
 // 10.2.3 Algorithms

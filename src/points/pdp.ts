@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, } from '../constants';
+import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, } from '../constants';
 import { PolicySet, Policy, Rule, } from '../interfaces';
 import { Singleton } from '../classes/singleton';
 import { Language } from '../language';
@@ -95,51 +95,38 @@ export class Pdp extends Singleton {
 
   public static EvaluateDecisionRequest(context: Context): Decision {
     const tag: string = `${Pdp.Tag}.EvaluateDecisionRequest()`;
-    const policies: (Policy | PolicySet)[] = Prp.RetrievePolicies(context);
+    const policies: Policy[] = Prp.RetrievePolicies(context);
     if (Context.Pdp.Debug) console.log(tag, 'policies:', policies);
-    const decisions: Decision[] = policies.map(policy => Pdp.IsPolicySet(policy) ?
-      Pdp.EvaluatePolicySet(policy, context) : Pdp.EvaluatePolicy(policy, context));
-    if (Context.Pdp.Debug) console.log(tag, 'decisions:', decisions);
-    const decision: Decision = Pdp.CombineDecision(decisions, Context.Pdp.CombiningAlgorithm);
+    const policySets: PolicySet[] = Prp.RetrievePolicySets(context);
+    if (Context.Pdp.Debug) console.log(tag, 'policySets:', policySets);
+    const policySet: PolicySet = {
+      id: null,
+      combiningAlgorithm: Context.Pdp.CombiningAlgorithm,
+      policies,
+      policySets,
+    };
+
+    const decision: Decision = Pdp.CombineDecision(policySet, context);
     if (Context.Pdp.Debug) console.log(tag, 'decision:', decision);
     return decision;
   }
 
-  public static EvaluatePolicySet(policySet: PolicySet, context: any): Decision {
-    const tag: string = `${Pdp.Tag}.EvaluatePolicySet()`;
-    if (Context.Pdp.Debug) console.log(tag, 'policySet:', policySet);
-
-    const targetMatch: boolean | Decision = Pdp.EvaluateTarget(policySet, context);
-    if (Context.Pdp.Debug) console.log(tag, 'targetMatch:', targetMatch);
-    if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
-    if (!targetMatch) return Decision.NotApplicable;
-
-    // TODO: Have to either pass in policy set (or it's target) or the policy set's id
-    // and then retrieve the policy to sub policies and policy sets.
-
-    // Create hashmap with accesed attributes in target, retrieve only matching policies (save id there)
-    const decisions: Decision[] = [
-      ...(policySet.policies || []).map(p => Pdp.EvaluatePolicy(p, context, )),
-      ...(policySet.policySets || []).map(ps => Pdp.EvaluatePolicySet(ps, context))
-    ];
-
-    const decision: Decision = Pdp.CombineDecision(decisions, policySet.combiningAlgorithm);
-
-    return decision;
-  }
-
   public static IsPolicySet(v: any): boolean {
-    return v.policies || v.policySets || v.p
+    return v.policies || v.policySets;
   }
 
   public static EvaluatePolicy(policy: Policy, context: Context): Decision {
     const tag: string = `${Pdp.Tag}.EvaluatePolicy()`;
-    const decisions: (boolean | Decision)[] = policy.rules.map(r => Pdp.EvaluateRule(r, context));
+    if (Context.Pdp.Debug) console.log(tag, 'policy:', policy);
 
-    //
-    policy.combiningAlgorithm
+    const targetMatch: boolean | Decision = Pdp.EvaluateTarget(policy, context);
+    if (Context.Pdp.Debug) console.log(tag, 'targetMatch:', targetMatch);
+    if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
+    if (!targetMatch) return Decision.NotApplicable;
 
-    return Decision.Permit;
+    const decision: Decision = Pdp.CombineDecision(policy, context);
+
+    return decision;
   }
 
   // 7.11. Rule evaluatiion
@@ -236,13 +223,17 @@ export class Pdp extends Singleton {
   // !!! The procedure for combining the decision and obligations from multiple policies -
   // obligations have to be combined as well!!!
 
-  public static CombineDecision(decisions: Decision[], combiningAlgorithm: CombiningAlgorithm): Decision {
-    const tag: string = `${Pdp.Tag}.EvaluatePolicySet()`;
+  // Pass down combining algo?
+  public static CombineDecision(policy: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Decision {
+    const tag: string = `${Pdp.Tag}.CombineDecision()`;
     switch (combiningAlgorithm) {
-      case CombiningAlgorithm.DenyOverrides: return Pdp.DenyOverrides(decisions);
-      case CombiningAlgorithm.PermitOverrides: return Pdp.PermitOverrides(decisions);
-      case CombiningAlgorithm.FirstApplicable: return Pdp.FirstApplicable(decisions);
-      case CombiningAlgorithm.OnlyOneApplicable: return Pdp.OnlyOneApplicable(decisions);
+      case CombiningAlgorithm.DenyOverrides: return Pdp.DenyOverrides(policy, context);
+      case CombiningAlgorithm.PermitOverrides: return Pdp.PermitOverrides(policy, context);
+      case CombiningAlgorithm.DenyUnlessPermit: return Pdp.DenyUnlessPermit(policy, context);
+      case CombiningAlgorithm.PermitUnlessDeny: return Pdp.PermitUnlessDeny(policy, context);
+      case CombiningAlgorithm.PermitOverrides: return Pdp.PermitOverrides(policy, context);
+      case CombiningAlgorithm.FirstApplicable: return Pdp.FirstApplicable(policy, context);
+      case CombiningAlgorithm.OnlyOneApplicable: return Pdp.OnlyOneApplicable(policy, context);
       default:
         if (Context.Pdp.Debug) console.log(tag, 'Invalid combiningAlgorithm:', combiningAlgorithm,
           '. Will use the Pdp.FallbackDecision:', Decision[Context.Pdp.FallbackDecision]);
@@ -251,45 +242,158 @@ export class Pdp extends Singleton {
     }
   }
 
-    public static EvaluateRules(rules: Rule[], combiningAlgorithm: CombiningAlgorithm): Decision {
-    const tag: string = `${Pdp.Tag}.EvaluatePolicySet()`;
+  public static DenyOverrides(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
-    switch (combiningAlgorithm) {
-      case CombiningAlgorithm.DenyOverrides: return Pdp.DenyOverrides(decisions);
-      case CombiningAlgorithm.PermitOverrides: return Pdp.PermitOverrides(decisions);
-      case CombiningAlgorithm.FirstApplicable: return Pdp.FirstApplicable(decisions);
-      case CombiningAlgorithm.OnlyOneApplicable: return Pdp.OnlyOneApplicable(decisions);
-      default:
-        if (Context.Pdp.Debug) console.log(tag, 'Invalid combiningAlgorithm:', combiningAlgorithm,
-          '. Will use the Pdp.FallbackDecision:', Decision[Context.Pdp.FallbackDecision]);
-        if (Context.Development) expect(combiningAlgorithm).to.be.oneOf(CombiningAlgorithms);
-        return Context.Pdp.FallbackDecision;
+    let deny: boolean = false;
+    let indeterminate: boolean = false;
+    let permit: boolean = false;
+
+    if (policySet) {
+      [...policySet.policies, ...policySet.policySets].forEach(policy => {
+        if (deny) return Decision.Deny;
+        const decision: Decision = Pdp.CombineDecision(policy, context);
+        deny = decision === Decision.Deny;
+        indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
+        permit = permit ? true : decision === Decision.Permit;
+      });
+    } else {
+      policy.rules.forEach(rule => {
+        if (deny) return Decision.Deny;
+        const decision: Decision = Pdp.EvaluateRule(rule, context);
+        deny = decision === Decision.Deny;
+        indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
+        permit = permit ? true : decision === Decision.Permit;
+      });
+    }
+
+    if (deny) return Decision.Deny;
+    if (indeterminate) return Decision.Indeterminate;
+    if (permit) return Decision.Permit;
+    return Decision.NotApplicable;
+  }
+
+  public static PermitOverrides(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+
+    let permit: boolean = false;
+    let indeterminate: boolean = false;
+    let deny: boolean = false;
+
+    if (policySet) {
+      [...policySet.policies, ...policySet.policySets].forEach(policy => {
+        if (permit) return Decision.Permit;
+        const decision: Decision = Pdp.CombineDecision(policy, context);
+        permit = decision === Decision.Permit;
+        indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
+        deny = deny ? true : decision === Decision.Deny;
+      });
+    } else {
+      policy.rules.forEach(rule => {
+        if (permit) return Decision.Permit;
+        const decision: Decision = Pdp.EvaluateRule(rule, context);
+        permit = decision === Decision.Permit;
+        indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
+        deny = deny ? true : decision === Decision.Deny;
+      });
+    }
+
+    if (permit) return Decision.Permit;
+    if (indeterminate) return Decision.Indeterminate;
+    if (deny) return Decision.Deny;
+    return Decision.NotApplicable;
+  }
+
+  public static DenyUnlessPermit(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+
+    let permit: boolean = false;
+    if (policySet) {
+      [...policySet.policies, ...policySet.policySets].forEach(policy => {
+        if (permit) return Decision.Permit;
+        const decision: Decision = Pdp.CombineDecision(policy, context);
+        permit = decision === Decision.Permit;
+      });
+    } else {
+      policy.rules.forEach(rule => {
+        if (permit) return Decision.Permit;
+        const decision: Decision = Pdp.EvaluateRule(rule, context);
+        permit = decision === Decision.Permit;
+      });
+    }
+
+    if (permit) return Decision.Permit;
+    return Decision.Deny;
+  }
+
+  public static PermitUnlessDeny(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+
+    let deny: boolean = false;
+    if (policySet) {
+      [...policySet.policies, ...policySet.policySets].forEach(policy => {
+        if (deny) return Decision.Deny;
+        const decision: Decision = Pdp.CombineDecision(policy, context);
+        deny = decision === Decision.Deny;
+      });
+    } else {
+      policy.rules.forEach(rule => {
+        if (deny) return Decision.Deny;
+        const decision: Decision = Pdp.EvaluateRule(rule, context);
+        deny = decision === Decision.Deny;
+      });
+    }
+
+    if (deny) return Decision.Deny;
+    return Decision.Permit;
+  }
+
+  public static FirstApplicable(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+
+    if (policySet) {
+      return [...policySet.policies, ...policySet.policySets].reduce((decision, policy) =>
+        decision !== Decision.NotApplicable ? decision : Pdp.CombineDecision(policy, context)
+        , Decision.NotApplicable);
+    } else {
+      return policy.rules.reduce((decision, rule) =>
+        decision !== Decision.NotApplicable ? decision : Pdp.EvaluateRule(rule, context)
+        , Decision.NotApplicable);
     }
   }
 
-  // If all rules evaluate to “Permit”, then the policy must return 708 “Permit”.
-  // The rule-combining algorithm, which is fully described in Appendix Appendix C,
-  // also says 709 what to do if an error were to occur when evaluating any rule,
-  // and what to do with rules that do not apply 710 to a particular decision request.
-  public static DenyOverrides(decisions: Decision[]) {
-    decisions = decisions.filter(d => d === Decision.Deny);
-    return decisions.length > 0 ? Decision.Deny : Decision.Permit;
-  }
+  public static OnlyOneApplicable(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
-  public static PermitOverrides(decisions: Decision[]) {
-    decisions = decisions.filter(d => d === Decision.Permit);
-    return decisions.length > 0 ? Decision.Permit : Decision.Deny;
-  }
+    let indeterminate: boolean = false;
+    let result: Decision = Decision.NotApplicable;
 
-  public static FirstApplicable(decisions: Decision[]) {
-    decisions = decisions.filter(d => d !== Decision.NotApplicable);
-    return decisions.length > 0 ? decisions[0] : Decision.NotApplicable;
-  }
+    if (policySet) {
+      [...policySet.policies, ...policySet.policySets].forEach(policy => {
+        if (indeterminate) return Decision.Indeterminate;
+        const decision: Decision = Pdp.CombineDecision(policy, context);
+        indeterminate = decision === Decision.Indeterminate ||
+          decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
+        result = decision;
+      });
+    } else {
+      policy.rules.forEach(rule => {
+        if (indeterminate) return Decision.Indeterminate;
+        const decision: Decision = Pdp.EvaluateRule(rule, context);
+        indeterminate = decision === Decision.Indeterminate ||
+          decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
+        result = decision;
+      });
+    }
 
-  public static OnlyOneApplicable(decisions: Decision[]) {
-    decisions = decisions.filter(d => d === Decision.NotApplicable);
-    return decisions.length === 0 ? Decision.NotApplicable :
-      decisions.length > 1 ? Decision.Indeterminate : decisions[0];
+    if (indeterminate) return Decision.Indeterminate;
+    return result;
   }
 }
 

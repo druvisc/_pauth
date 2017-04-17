@@ -7,10 +7,16 @@ export class Prp extends Singleton {
 
   private static PolicyMap = {};
 
-  public static RetrievePolicies(context: Context): (Policy | PolicySet)[] {
+  public static RetrievePolicies(context: Context): Policy[] {
     const tag: string = `${Prp.Tag}.RetrievePolicies()`;
-    const policies: (Policy | PolicySet)[] = [];
+    const policies: Policy[] = [];
     return policies;
+  }
+
+  public static RetrievePolicySets(context: Context): PolicySet[] {
+    const tag: string = `${Prp.Tag}.RetrievePolicySets()`;
+    const policySets: PolicySet[] = [];
+    return policySets;
   }
 
   public static IndexPolicies(policies: (Policy | PolicySet)[]) {
