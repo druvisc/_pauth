@@ -35,6 +35,7 @@ describe('Rule', () => {
 
     const ofAgeRuleAuthenticated: Rule = {
       id: 1,
+      version: '0.0.1',
       effect: Effect.Permit,
       target: targetAuthenticatedAlcohol,
       condition: `$.subject.age >= ${ofAge}`,

@@ -17,29 +17,12 @@ interface Error {
 }
 
 
-// 7.3.5 Attribute Retrieval 3294
-// The PDP SHALL request the values of attributes in the request context from the context handler.
-// The context handler MAY also add attributes to the request context without the PDP requesting them.
-// The PDP SHALL reference the attributes as if they were in a physical request context document,
-// but the context handler is responsible for obtaining and supplying the requested values
-// by whatever means it deems appropriate, including by retrieving them from one or more Policy Information Points.
-
-
 
 // If the result is “Indeterminate”, then the AttributeId,
 // DataType and Issuer of the attribute MAY be listed in the authorization decision
 // as described in Section 7.17. However, a PDP MAY choose not to
 // return such information for security 3309 reasons.
 
-
-
-
-// 7.3.6 Environment Attributes
-// Standard environment attributes are listed in Section B.7. If a value for one of these
-// attributes is 3316 supplied in the decision request, then the context handler SHALL use
-// that value. Otherwise, the 3317 context handler SHALL supply a value. In the case of date
-// and time attributes, the supplied value 3318 SHALL have the semantics
-// of the "date and time that apply to the decision request".
 
 
 // 7.19.3 Missing attributes
@@ -61,29 +44,14 @@ interface Error {
 // status code, in response to successively-refined 3615 requests.
 
 
-// 'DenyUnlessPermit',
-
-// // If any decision is Decision.Deny the result is Decision.Deny, otherwise Decision.Permit.
-// 'PermitUnlessDeny',
-
-// // Result of first applicable policy, otherwise Decision.NotApplicable.
-// 'FirstApplicable',
-
-// // Decision.NotApplicable unless one decision applicable.
-// // Decision.Indeterminate if one or more decisions are Decision.Indeterminate.
-// // Result of policy if only one applicable.
-// 'OnlyOneApplicable'
-
-
-
-// <Target> [Required]
-// The <Target> element defines the applicability of a policy set to a set of decision requests.
-// The <Target> element MAY be declared by the creator of the <PolicySet> or it MAY be computed
-// from the <Target> elements of the referenced <Policy> elements, either as an intersection or as a union.
 
 // The system entity that evaluates applicable policy and renders an authorization decision.
 export class Pdp extends Singleton {
   private static readonly Tag: string = 'Pdp';
+
+  public static readonly isRule = (v: any): boolean => !!v.rules;
+  public static readonly isPolicy = (v: any): boolean => !!v.rules;
+  public static readonly isPolicySet = (v: any): boolean => !!v.policies || !!v.policySets;
 
   // The PDP processing this request context locates the policy in its policy repository.
   // It compares the 802 attributes in the request context with the policy target.
@@ -101,6 +69,7 @@ export class Pdp extends Singleton {
     if (Context.Pdp.Debug) console.log(tag, 'policySets:', policySets);
     const policySet: PolicySet = {
       id: null,
+      version: null,
       combiningAlgorithm: Context.Pdp.CombiningAlgorithm,
       policies,
       policySets,
@@ -109,10 +78,6 @@ export class Pdp extends Singleton {
     const decision: Decision = Pdp.CombineDecision(policySet, context);
     if (Context.Pdp.Debug) console.log(tag, 'decision:', decision);
     return decision;
-  }
-
-  public static IsPolicySet(v: any): boolean {
-    return v.policies || v.policySets;
   }
 
   public static EvaluatePolicy(policy: Policy, context: Context): Decision {
@@ -144,7 +109,6 @@ export class Pdp extends Singleton {
     if (Context.Pdp.Debug) console.log(tag, 'decision:', decision);
     return decision === true ? rule.effect : Decision.NotApplicable;
   }
-
 
   // 7.7 Target evaluation
   public static EvaluateTarget(element: Rule | Policy | PolicySet, context: Context): boolean | Decision {
@@ -242,8 +206,9 @@ export class Pdp extends Singleton {
     }
   }
 
+  // !!! TODO: ADD INDETERMINATE(DP, D, P) !!!
   public static DenyOverrides(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
-    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
     let deny: boolean = false;
@@ -275,7 +240,7 @@ export class Pdp extends Singleton {
   }
 
   public static PermitOverrides(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
-    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
     let permit: boolean = false;
@@ -307,7 +272,7 @@ export class Pdp extends Singleton {
   }
 
   public static DenyUnlessPermit(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
-    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
     let permit: boolean = false;
@@ -330,7 +295,7 @@ export class Pdp extends Singleton {
   }
 
   public static PermitUnlessDeny(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
-    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
     let deny: boolean = false;
@@ -353,7 +318,7 @@ export class Pdp extends Singleton {
   }
 
   public static FirstApplicable(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
-    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
     if (policySet) {
@@ -368,7 +333,7 @@ export class Pdp extends Singleton {
   }
 
   public static OnlyOneApplicable(policyOrSet: Policy | PolicySet, context: Context, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
-    const policy: Policy = Pdp.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
     let indeterminate: boolean = false;

@@ -1,4 +1,4 @@
-import { Effect } from './constants';
+import { Effect } from '../constants';
 
 export const createHandler = (handler: Function/* name: string, */): Function => {
 

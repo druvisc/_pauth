@@ -23,6 +23,11 @@ export const substrCount = (str: string, substr: string): number =>
 /** String operations */
 
 
+/** Array operations */
+export const includes = (arr: any[], v: any): boolean => arr.indexOf(v) !== -1;
+/** Array operations */
+
+
 /** Type checking */
 export const isNull = (v): boolean => v === null;
 export const isArray = (v): boolean => Array.isArray(v);
@@ -35,3 +40,26 @@ export const isNumber = (v): boolean => !isNaN(Number(v)) && isFinite(v);
 export const isObject = (v): boolean => typeof v === 'object' && !isArray(v) && !isNull(v);
 export const isPrimitive = (v): boolean => !isObject(v) && !isArray(v) && !isFunciton(v);
 /** Type checking */
+
+
+
+// {
+//   "compilerOptions": {
+//     "alwaysStrict": true,
+//     "target": "es5",
+//     "module": "commonjs",
+//     "moduleResolution": "node",
+//     "emitDecoratorMetadata": true,
+//     "experimentalDecorators": true,
+//     "allowSyntheticDefaultImports": true,
+//     "lib": [
+//       "es6"
+//     ]
+//   },
+//   "include": [
+//     "app/**/*.ts"
+//   ],
+//   "exclude": [
+//     "node_modules"
+//   ]
+// }
