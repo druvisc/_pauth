@@ -29,6 +29,8 @@ export const isUrl = (v: any): boolean => validUrl.isUri(v);
 
 /** Array operations */
 export const includes = (arr: any[], v: any): boolean => arr.indexOf(v) !== -1;
+export const flatten = (arr: any[][]): any[] => [].concat.apply([], arr);
+export const unique = (arr: any[]): any[] => arr.reduce((a, b) => includes(a, b) ? a : [...a, b], []);
 /** Array operations */
 
 

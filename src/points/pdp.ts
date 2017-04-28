@@ -63,9 +63,9 @@ export class Pdp extends Singleton {
 
   public static EvaluateDecisionRequest(context: Context): Decision {
     const tag: string = `${Pdp.Tag}.EvaluateDecisionRequest()`;
-    const policies: Policy[] = Prp.RetrievePolicies(context);
+    const policies: Policy[] = Prp.RetrieveContextPolicies(context);
     if (Context.Pdp.Debug) console.log(tag, 'policies:', policies);
-    const policySets: PolicySet[] = Prp.RetrievePolicySets(context);
+    const policySets: PolicySet[] = Prp.RetrieveContextPolicySets(context);
     if (Context.Pdp.Debug) console.log(tag, 'policySets:', policySets);
     const policySet: PolicySet = {
       id: null,
@@ -94,7 +94,7 @@ export class Pdp extends Singleton {
     return decision;
   }
 
-  // 7.11. Rule evaluatiion
+  // 7.11. Rule evaluation
   public static EvaluateRule(rule: Rule, context/*: Context*/): Effect | Decision {
     const tag: string = `${Pdp.Tag}.${rule.id}.EvaluateRule()`;
     // if (Context.Pdp.Debug) console.log(tag, 'rule:', rule);
@@ -114,7 +114,12 @@ export class Pdp extends Singleton {
   public static EvaluateTarget(element: Rule | Policy | PolicySet, context: Context): boolean | Decision {
     const tag: string = `${Pdp.Tag}.(Element - ${element.id}).EvaluateTarget()`;
     const anyOf: string[][] = element.target;
+    const result: boolean | Decision = Pdp.EvaluateAnyOf(anyOf, context);
+    return result;
+  }
 
+  public static EvaluateAnyOf(anyOf: string[][], context: Context): boolean | Decision {
+    const tag: string = `${Pdp.Tag}.EvaluateAnyOf()`;
     const results: (boolean | Decision)[] = anyOf.map(allOf => Pdp.EvaluateAllOf(allOf, context));
     if (Context.Pdp.Debug) console.log(tag, 'results:', results);
 
@@ -139,11 +144,9 @@ export class Pdp extends Singleton {
       return true;
     }
 
-    // const result: boolean | Decision = Pdp.ExpressionToDecision(rule.condition, context);
-    // if (Context.Pdp.Debug) console.log(tag, 'result:', result);
-    // return result;
-
-    return Pdp.ExpressionToDecision(rule.condition, context);
+    const anyOf: string[][] = rule.condition;
+    const result: boolean | Decision = Pdp.EvaluateAnyOf(anyOf, context);
+    return result;
   }
 
   // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
@@ -152,7 +155,7 @@ export class Pdp extends Singleton {
     const expression: string = Language.StrToExpression(str, context);
     if (Context.Pdp.Debug) console.log(tag, 'expression:', expression);
     if (!expression) {
-      if (Context.Pdp.Debug) console.log(tag, 'String evaluted to an invalid expression.');
+      if (Context.Pdp.Debug) console.log(tag, 'String evaluated to an invalid expression.');
       return Decision.Indeterminate;
     }
 

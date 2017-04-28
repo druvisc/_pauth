@@ -11,7 +11,7 @@ export interface Rule {
   effect: Effect;
   description?: string;
   target?: string[][];
-  condition?: string; // string[][]
+  condition?: string[][]; // Added possibility to OR them like the target.
   obligations?: Obligation[];
   advice?: Advice[];
 }
@@ -28,10 +28,11 @@ export interface Policy {
   // combinerParameters: any;
   // ruleCombinerParameters: any;
   target?: string[][]; // Unlike in XACML, can inherit from PolicySet.
-  // What the hell, custom handlers?
-  // variableDefinition: any;
+  // variableDefinition: any; // Custom handlers..?
   rules?: Rule[];
-  ruleReferences?: (id | url)[]; // Added references, not in XACML.
+  ruleIds?: id[];
+  ruleUrls?: url[];
+  _rules?: Rule[];
   obligations?: Obligation[];
   advice?: Advice[];
 }
@@ -46,11 +47,14 @@ export interface PolicySet {
   // issuer?: string;
   // defaults?: any;
   target?: string[][]; // Unlike in XACML, can inherit from PolicySet.
-  // What the hell, custom handlers?
   policySets?: PolicySet[];
-  policySetReferences?: (id | url)[]; // Can include ids (XACML mentions URLs)?
-  policies?: Policy[]; // Can include ids (XACML mentions URLs)?
-  policyReferences?: (id | url)[]; // Can include ids (XACML mentions URLs)?
+  policySetIds?: id[];
+  policySetUrls?: url[];
+  _policySets?: PolicySet[];
+  policies?: Policy[];
+  policyIds?: id[];
+  policyUrls?: url[];
+  _policies?: Policy[];
   obligations?: Obligation[];
   advice?: Advice[];
   // combinerParameters: any;
@@ -82,7 +86,7 @@ export interface Advice {
 
 
 // A conjunctive sequence of obligation expressions which MUST be evaluated
-// into obligations byt the PDP. The corresponsding obligations MUST be fulfilled
+// into obligations byt the PDP. The corresponding obligations MUST be fulfilled
 // by the PEP in conjunction with 2272 the authorization decision.
 // See 7.18, 7.2.
 export interface Obligation {

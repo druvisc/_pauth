@@ -38,7 +38,11 @@ describe('Rule', () => {
       version: '0.0.1',
       effect: Effect.Permit,
       target: targetAuthenticatedAlcohol,
-      condition: `$.subject.age >= ${ofAge}`,
+      condition: [
+        [
+          `$.subject.age >= ${ofAge}`
+        ]
+      ],
     };
 
     const action = {

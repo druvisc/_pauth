@@ -6,12 +6,56 @@ import { Context } from './context';
 const SubscriptStart: string = '[';
 const SubscriptEnd: string = ']';
 
+
+// TODO: Perhaps can add extracted queries for expressions as meta data to avoid repetition?
+
 // TODO: Needs testing.
 export class Language extends Singleton {
-  private static readonly Tag: string = 'Language';
+  private static readonly tag: string = 'Language';
+
+  // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
+  // TODO: Validate query?
+  public static StrToExpression(str: string, context: Context): string {
+    const tag: string = `${Language.tag}.StrToExpression()`;
+    if (Context.Language.Debug) console.log(tag, 'str:', str);
+    const queries: string[] = Language.ExtractQueries(str, context);
+    let queryRes: string;
+    queries.forEach(query => {
+      if (Context.Language.Debug) console.log(tag, 'query:', query);
+      try {
+        queryRes = jp.query(context, query)[0];
+      } catch (err) {
+        if (Context.Language.Debug) console.log(tag, 'Invalid query:', query);
+        return null;
+      }
+      // If the query result is a string, it must be represented as a string in the expression.
+      // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
+      queryRes = !isString(queryRes) && isPrimitive(queryRes) ? queryRes : `'${queryRes}'`;
+      if (Context.Language.Debug) console.log(tag, 'queryRes:', queryRes);
+      str = str.replace(query, queryRes);
+      // TODO: Validate query?
+      query = Language.StrToQuery(str);
+    });
+    if (Context.Language.Debug) console.log(tag, 'expression:', str);
+    return str;
+  }
+
+  public static ExtractQueries(str: string, context: Context): string[] {
+    const tag: string = `${Language.tag}.ExtractQueries()`;
+    const queries: string[] = [];
+    let query: string = Language.StrToQuery(str);
+    while (query) {
+      if (Context.Language.Debug) console.log(tag, 'query:', query);
+      queries.push(query);
+      str = str.replace(query, '');
+      query = Language.StrToQuery(str);
+    }
+    if (Context.Language.Debug) console.log(tag, 'queries:', queries);
+    return queries;
+  }
 
   public static StrToQuery(str: string): string {
-    const tag: string = `${Language.Tag}.StrToQuery()`;
+    const tag: string = `${Language.tag}.StrToQuery()`;
     const start: number = str.indexOf('$');
     if (Context.Language.Debug) console.log(tag, 'start:', start);
     if (start === -1) return null;
@@ -34,30 +78,8 @@ export class Language extends Singleton {
     return query;
   }
 
-  // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
-  // TODO: Validate query?
-  public static StrToExpression(str: string, context: Context): string {
-    const tag: string = `strToExpression()`;
-    if (Context.Language.Debug) console.log(tag, 'str:', str);
-    let query: string = Language.StrToQuery(str);
-    let queryRes: any;
-    while (query) {
-      if (Context.Language.Debug) console.log(tag, 'query:', query);
-      try {
-        queryRes = jp.query(context, query)[0];
-      } catch (err) {
-        if (Context.Language.Debug) console.log(tag, 'Invalid query:', query);
-        return null;
-      }
-      // If the query result is a string, it must be represented as a string in the expression.
-      // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
-      queryRes = !isString(queryRes) && isPrimitive(queryRes) ? queryRes : `'${queryRes}'`;
-      if (Context.Language.Debug) console.log(tag, 'queryRes:', queryRes);
-      str = str.replace(query, queryRes);
-      // TODO: Validate query?
-      query = Language.StrToQuery(str);
-    }
-    if (Context.Language.Debug) console.log(tag, 'expression:', str);
-    return str;
+  public static QueryToAttribute(str: string): string {
+    const split: string[] = str.split('.');
+    return split[1];
   }
 }
