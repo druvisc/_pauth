@@ -2,11 +2,12 @@ import { Effect, AuthorizationDecision, Decision, CombiningAlgorithm, PepBias, S
 
 export type id = string | number;
 export type url = string;
+export type version = string | number;
 
 // 5.21 Element <Rule>
 export interface Rule {
   id: id;
-  version: string | number; // Added, not in XACML.
+  version: version; // Added, not in XACML.
   effect: Effect;
   description?: string;
   target?: string[][];
@@ -18,7 +19,7 @@ export interface Rule {
 // 5.14 Element <Policy>
 export interface Policy {
   id: id;
-  version: string | number;
+  version: version;
   combiningAlgorithm: CombiningAlgorithm;
   // maxDelegationDepth?: number;
   description?: string;
@@ -38,7 +39,7 @@ export interface Policy {
 // 5.1 Element <PolicySet>
 export interface PolicySet {
   id: id;
-  version: string | number;
+  version: version;
   combiningAlgorithm: CombiningAlgorithm;
   // maxDelegationDepth?: number;
   description?: string;

@@ -2,12 +2,7 @@ import { Singleton } from '../classes/singleton';
 import { Context } from '../context';
 import { Policy, PolicySet } from '../interfaces';
 
-
-// <Target> [Required]
-// The <Target> element defines the applicability of a policy set to a set of decision requests.
-// The <Target> element MAY be declared by the creator of the <PolicySet> or it MAY be computed
-// from the <Target> elements of the referenced <Policy> elements, either as an intersection or as a union.
-
+// Database?
 
 
 export class Prp extends Singleton {
