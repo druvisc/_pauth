@@ -32,6 +32,11 @@ export const includes = (arr: any[], v: any): boolean => arr.indexOf(v) !== -1;
 /** Array operations */
 
 
+/** Object operations */
+export const createMap = (): any => Object.create(null);
+/** Object operations */
+
+
 /** Type checking */
 export const isNull = (v): boolean => v === null;
 export const isArray = (v): boolean => Array.isArray(v);

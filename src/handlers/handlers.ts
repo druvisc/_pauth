@@ -32,7 +32,7 @@ interface User {
 }
 
 interface Beverage {
-  name: string
+  name: string;
   abv: number;
 }
 
