@@ -29,10 +29,9 @@ export interface Policy {
   // ruleCombinerParameters: any;
   target?: string[][]; // Unlike in XACML, can inherit from PolicySet.
   // variableDefinition: any; // Custom handlers..?
-  rules?: Rule[];
   ruleIds?: id[];
   ruleUrls?: url[];
-  _rules?: Rule[];
+  rules?: Rule[];
   obligations?: Obligation[];
   advice?: Advice[];
 }
@@ -47,14 +46,12 @@ export interface PolicySet {
   // issuer?: string;
   // defaults?: any;
   target?: string[][]; // Unlike in XACML, can inherit from PolicySet.
-  policySets?: PolicySet[];
   policySetIds?: id[];
   policySetUrls?: url[];
-  _policySets?: PolicySet[];
-  policies?: Policy[];
+  policySets?: PolicySet[];
   policyIds?: id[];
   policyUrls?: url[];
-  _policies?: Policy[];
+  policies?: Policy[];
   obligations?: Obligation[];
   advice?: Advice[];
   // combinerParameters: any;

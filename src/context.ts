@@ -65,6 +65,8 @@ export class Context /* implements IContext*/ {
   };
 
   public static readonly Prp = {
+    CacheIdElements: true,
+    CacheUrlElements: true,
     Debug: false,
   };
 
