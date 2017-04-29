@@ -1,19 +1,10 @@
-import { expect } from 'chai';
 import { Singleton } from './classes/singleton';
-import { Prp } from './points/prp';
 import { id, url, version, Rule, Policy, PolicySet, Obligation, Advice, } from './interfaces';
-import { isUrl, isObject, includes, isArray, isNumber, isString, isPresent } from './utils';
+import { isUrl, includes, isArray, isNumber, isString } from './utils';
 import { Effect, Effects, CombiningAlgorithm, CombiningAlgorithms, } from './constants';
 
-let subject = {
-  age: 16,
-  name: undefined,
-};
-
-
-
 export class Bootstrap extends Singleton {
-  private static readonly Tag: string = 'Pdp';
+  private static readonly tag: string = 'Pdp';
 
   public static readonly errors: Error[] = [];
 
@@ -118,6 +109,7 @@ export class Bootstrap extends Singleton {
       version: Bootstrap.getVersion(element, parent),
       effect: Bootstrap.getEffect(element, parent),
       description: Bootstrap.getDescription(element, parent),
+      // Since the target can differ per rule, it's set in Prp when evaluating policies.
       // target: Bootstrap.getTarget(element, parent),
       condition: Bootstrap.getCondition(element, parent),
       obligations: Bootstrap.getObligations(element, parent),
@@ -141,8 +133,11 @@ export class Bootstrap extends Singleton {
       // defaults?: any;
       // combinerParameters: any;
       // ruleCombinerParameters: any;
+      // Since the target can differ per policy, it's set in Prp when evaluating policies.
       // target: Bootstrap.getTarget(element, parent),
       // variableDefinition: any;
+      // ruleIds:
+      // ruleUrls:
       // rules: Bootstrap.getRules(element, parent),
       obligations: Bootstrap.getObligations(element, parent),
       advice: Bootstrap.getAdvice(element, parent),
@@ -158,6 +153,7 @@ export class Bootstrap extends Singleton {
       description: Bootstrap.getDescription(element, parent),
       // issuer?: string;
       // defaults?: any;
+      // Since the target can differ per policySet, it's set in Prp when evaluating policies.
       // target: Bootstrap.getTarget(element, parent),
       // policySets: Bootstrap.getPolicySets(element, parent),
       // policies: Bootstrap.getPolicies(element, parent),
