@@ -6,3 +6,5 @@
 // The PDP SHALL reference the attributes as if they were in a physical request context document,
 // but the context handler is responsible for obtaining and supplying the requested values
 // by whatever means it deems appropriate, including by retrieving them from one or more Policy Information Points.
+
+

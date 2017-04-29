@@ -35,8 +35,9 @@ import { Singleton } from './classes/singleton';
 
 
 export class Settings extends Singleton {
-  public static readonly Environment: Environment;
-  public static readonly Development: boolean = Settings.Environment !== Environment.Production;
+  public static readonly environment: Environment;
+  public static readonly development: boolean = Settings.environment !== Environment.Production;
+  public static readonly port: number = 3000;
 
   public static readonly Pap = {
     debug: false,
@@ -46,7 +47,11 @@ export class Settings extends Singleton {
     bias: PepBias.Deny,
     debug: false,
     fallbackEffect: Effect.Deny as Effect,
+    // TODO: Implement
+    fulfillAdviceBeforeEffect: true,
+    fulfillObligationsBeforeEffect: true,
   };
+
 
   public static readonly Pdp = {
     debug: true,

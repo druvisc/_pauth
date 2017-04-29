@@ -5,6 +5,11 @@ import { Singleton } from '../classes/singleton';
 import { Settings } from '../settings';
 import { Pdp } from './pdp';
 
+
+// Durr i dont have a pep..
+
+
+
 const context: any = {};
 
 // The system entity that performs access control,
@@ -19,11 +24,13 @@ const context: any = {};
 // authorization decision as described in one of the following sub-sections.
 // In any case any advice in the decision may be safely ignored by the PEP.
 
-class Pep extends Singleton {
+export class Pep extends Singleton {
   private static readonly tag: string = 'Pep';
 
-  public static EvaluateRequest(context: Settings) {
+  public static EvaluateRequest(context: any) {
     const tag: string = `${Pep.tag}.EvaluateRequest()`;
+
+
     // RETURNED ADVICES AND OBLIGATIONS
     // Decision response?
     const response = {
