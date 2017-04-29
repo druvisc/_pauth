@@ -105,7 +105,7 @@ export class Prp extends Singleton {
     }
 
     Prp.bootstrapped = true;
-    Prp.Index();
+    Prp.IndexPolicies();
 
     if (!Settings.Prp.cacheIdElements) {
       Prp.ruleMap = {};
@@ -158,8 +158,8 @@ export class Prp extends Singleton {
     });
   }
 
-  private static Index(): void {
-    const tag: string = `${Prp.tag}.Index()`;
+  private static IndexPolicies(): void {
+    const tag: string = `${Prp.tag}.IndexPolicies()`;
     Prp.ElementsToTargetMap(Prp.policyMap, Prp.targetMap, null);
     Prp.ElementsToTargetMap(Prp.policySetMap, Prp.targetMap, null);
     if (Settings.Prp.debug) console.log(tag, 'targetMap:', Prp.targetMap);

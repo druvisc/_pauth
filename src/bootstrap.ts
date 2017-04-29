@@ -18,7 +18,7 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeId = (id: id): id =>
     isNumber(id) || isString(id) ? id : null
 
-  private static readonly getId = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet): id => {
+  private static readonly getId = (element: Rule | Policy | PolicySet): id => {
     const id: id = Bootstrap.normalizeId(element.id);
     if (!id) Bootstrap.errors.push(new Error(`Element ${id} (useful, I know) has an invalid id.`));
     return id;
@@ -28,7 +28,7 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeVersion = (version: version): version =>
     isString(version) || isNumber(version) ? version : null
 
-  private static readonly getVersion = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet): version => {
+  private static readonly getVersion = (element: Rule | Policy | PolicySet): version => {
     const version: version = Bootstrap.normalizeVersion(element.version);
     return version;
   }
@@ -37,14 +37,14 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeEffect = (effect: Effect): Effect =>
     includes(Effects, effect) ? effect : null
 
-  private static readonly getEffect = (element: Rule, parent: Policy = {} as Policy): number | string => {
+  private static readonly getEffect = (element: Rule): number | string => {
     const id: number | string = Bootstrap.normalizeId(element.id);
     if (!id) Bootstrap.errors.push(new Error(`Rule ${element.id} (useful, I know) has an invalid Effect.`));
     return id;
   }
 
 
-  private static readonly getDescription = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet): string => {
+  private static readonly getDescription = (element: Rule | Policy | PolicySet): string => {
     const description: string = Bootstrap.normalizeString(element.description);
     return description;
   }
@@ -70,7 +70,7 @@ export class Bootstrap extends Singleton {
   }
 
 
-  private static readonly getCondition = (element: Rule, parent: Policy = {} as Policy): string[][] => {
+  private static readonly getCondition = (element: Rule): string[][] => {
     const condition: string[][] = Bootstrap.normalizeTarget(element.condition);
     if (!condition) Bootstrap.errors.push(new Error(`Rule ${element.id} has an invalid condition.`));
     return condition;
@@ -78,7 +78,7 @@ export class Bootstrap extends Singleton {
 
 
   // TODO: Implement.
-  private static readonly getObligations = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet): Obligation[] => {
+  private static readonly getObligations = (element: Rule | Policy | PolicySet): Obligation[] => {
     const obligations: Obligation[] = []; // normalizeTarget(element.obligations);
     if (!obligations) Bootstrap.errors.push(new Error(`Element ${element.id} has invalid obligations.`));
     return obligations;
@@ -86,7 +86,7 @@ export class Bootstrap extends Singleton {
 
 
   // TODO: Implement.
-  private static readonly getAdvice = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet): Advice[] => {
+  private static readonly getAdvice = (element: Rule | Policy | PolicySet): Advice[] => {
     const advice: Advice[] = []; // normalizeTarget(element.advice);
     if (!advice) Bootstrap.errors.push(new Error(`Element ${element.id} has invalid advice.`));
     return advice;
@@ -96,69 +96,77 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeCombiningAlgorithm = (combiningAlgorithm: CombiningAlgorithm): CombiningAlgorithm =>
     includes(CombiningAlgorithms, combiningAlgorithm) ? combiningAlgorithm : null
 
-  private static readonly getCombiningAlgorithm = (element: Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet): CombiningAlgorithm => {
+  private static readonly getCombiningAlgorithm = (element: Policy | PolicySet): CombiningAlgorithm => {
     const combiningAlgorithm: CombiningAlgorithm = Bootstrap.normalizeCombiningAlgorithm(element.combiningAlgorithm);
     if (!combiningAlgorithm) Bootstrap.errors.push(new Error(`Element ${element.id} has an invalid CombiningAlgorithm.`));
     return combiningAlgorithm;
   }
 
 
-  public static readonly getRule = (element: Rule, parent: Policy = {} as Policy): Rule =>
+  private static readonly getIds = (element: Policy | PolicySet, key: string): id[] => {
+    const ids: id[] = element[key].map(Bootstrap.normalizeId);
+    if (ids.some(id => !id)) Bootstrap.errors.push(new Error(`Element ${element.id} has invalid ${key}.`));
+    return ids;
+  }
+
+
+  private static readonly getUrls = (element: Policy | PolicySet, key: string): url[] => {
+    const urls: url[] = element[key].map(Bootstrap.normalizeUrl);
+    if (urls.some(url => !url)) Bootstrap.errors.push(new Error(`Element ${element.id} has invalid ${key}.`));
+    return urls;
+  }
+
+
+  public static readonly getRule = (element: Rule): Rule =>
     Object.assign({}, element, {
-      id: Bootstrap.getId(element, parent),
-      version: Bootstrap.getVersion(element, parent),
-      effect: Bootstrap.getEffect(element, parent),
-      description: Bootstrap.getDescription(element, parent),
-      // Since the target can differ per rule, it's set in Prp when evaluating policies.
-      // target: Bootstrap.getTarget(element, parent),
-      condition: Bootstrap.getCondition(element, parent),
-      obligations: Bootstrap.getObligations(element, parent),
-      advice: Bootstrap.getAdvice(element, parent),
+      id: Bootstrap.getId(element),
+      version: Bootstrap.getVersion(element),
+      effect: Bootstrap.getEffect(element),
+      description: Bootstrap.getDescription(element),
+      // target: Bootstrap.getTarget(element), // Since the target can differ per rule, it's set in Prp when evaluating policies.
+      condition: Bootstrap.getCondition(element),
+      obligations: Bootstrap.getObligations(element),
+      advice: Bootstrap.getAdvice(element),
     })
 
-  // public static readonly getUrl = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet): url => {
 
-
-  // TODO: Add ruleIds, ruleUrls, policyIds, policyUrls, policySetIds, policySetUrls.
-
-
-  public static readonly getPolicy = (element: Policy, parent: PolicySet = {} as PolicySet): Policy =>
+  public static readonly getPolicy = (element: Policy): Policy =>
     Object.assign({}, element, {
-      id: Bootstrap.getId(element, parent),
-      version: Bootstrap.getVersion(element, parent),
-      combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element, parent),
+      id: Bootstrap.getId(element),
+      version: Bootstrap.getVersion(element),
+      combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element),
       // maxDelegationDepth?: number;
-      description: Bootstrap.getDescription(element, parent),
+      description: Bootstrap.getDescription(element),
       // issuer?: string;
       // defaults?: any;
       // combinerParameters: any;
       // ruleCombinerParameters: any;
-      // Since the target can differ per policy, it's set in Prp when evaluating policies.
-      // target: Bootstrap.getTarget(element, parent),
+      // target: Bootstrap.getTarget(element), // Since the target can differ per policy, it's set in Prp when evaluating policies.
       // variableDefinition: any;
-      // ruleIds:
-      // ruleUrls:
-      // rules: Bootstrap.getRules(element, parent),
-      obligations: Bootstrap.getObligations(element, parent),
-      advice: Bootstrap.getAdvice(element, parent),
+      ruleIds: Bootstrap.getIds(element, 'ruleIds'),
+      ruleUrls: Bootstrap.getUrls(element, 'ruleUrls'),
+      // rules: Bootstrap.getRules(element),
+      obligations: Bootstrap.getObligations(element),
+      advice: Bootstrap.getAdvice(element),
     })
 
 
-  public static readonly getPolicySet = (element: PolicySet, parent: PolicySet = {} as PolicySet): PolicySet =>
+  public static readonly getPolicySet = (element: PolicySet): PolicySet =>
     Object.assign({}, element, {
-      id: Bootstrap.getId(element, parent),
-      version: Bootstrap.getVersion(element, parent),
-      combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element, parent),
+      id: Bootstrap.getId(element),
+      version: Bootstrap.getVersion(element),
+      combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element),
       // maxDelegationDepth?: number;
-      description: Bootstrap.getDescription(element, parent),
+      description: Bootstrap.getDescription(element),
       // issuer?: string;
       // defaults?: any;
-      // Since the target can differ per policySet, it's set in Prp when evaluating policies.
-      // target: Bootstrap.getTarget(element, parent),
-      // policySets: Bootstrap.getPolicySets(element, parent),
-      // policies: Bootstrap.getPolicies(element, parent),
-      obligations: Bootstrap.getObligations(element, parent),
-      advice: Bootstrap.getAdvice(element, parent),
+      // target: Bootstrap.getTarget(element),  // Since the target can differ per policySet, it's set in Prp when evaluating policies.
+      policySetIds: Bootstrap.getIds(element, 'policySetIds'),
+      policySetUrls: Bootstrap.getUrls(element, 'policySetUrls'),
+      policyIds: Bootstrap.getIds(element, 'policyIds'),
+      policyUrls: Bootstrap.getUrls(element, 'policyUrls'),
+      obligations: Bootstrap.getObligations(element),
+      advice: Bootstrap.getAdvice(element),
       // combinerParameters: any;
       // policyCombinerParameters: any;
       // policySetCombinerParameters: any;
