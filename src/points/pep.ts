@@ -2,7 +2,7 @@ import { Decision, Effect, PepBias, } from '../constants';
 import { Obligation, Advice } from '../interfaces';
 import { isArray } from '../utils';
 import { Singleton } from '../classes/singleton';
-import { Context } from '../context';
+import { Settings } from '../context';
 import { Pdp } from './pdp';
 
 const context: any = {};
@@ -22,7 +22,7 @@ const context: any = {};
 class Pep extends Singleton {
   private static readonly Tag: string = 'Pep';
 
-  public static EvaluateRequest(context: Context) {
+  public static EvaluateRequest(context: Settings) {
     const tag: string = `${Pep.Tag}.EvaluateRequest()`;
     // RETURNED ADVICES AND OBLIGATIONS
     // Decision response?
@@ -33,7 +33,7 @@ class Pep extends Singleton {
     };
 
     const decision: Decision = Pdp.EvaluateDecisionRequest(context);
-    if (Context.Pep.Debug) console.log(tag, 'decision:', decision);
+    if (Settings.Pep.debug) console.log(tag, 'decision:', decision);
 
   }
 

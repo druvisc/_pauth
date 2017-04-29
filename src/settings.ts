@@ -1,5 +1,5 @@
-import { PepBias, Effect, Environment, Decision, Operation, CombiningAlgorithm,} from './constants';
-import { Context as IContext } from './interfaces';
+import { PepBias, Effect, Environment, Decision, Operation, CombiningAlgorithm, } from './constants';
+import { Singleton } from './classes/singleton';
 
 // Context - The canonical representation of a decision request and an authorization decision.
 // Context handler - The system entity that converts decision requests in the native request
@@ -34,51 +34,49 @@ import { Context as IContext } from './interfaces';
 // values that was initially tested.)
 
 
-export class Context /* implements IContext*/ {
-
-  action: string;
-
-  public static readonly PepBias: PepBias.Deny;
+export class Settings extends Singleton {
   public static readonly Environment: Environment;
-  public static readonly Development: boolean = Context.Environment === Environment.Development;
+  public static readonly Development: boolean = Settings.Environment !== Environment.Production;
+
+  public static readonly Pap = {
+    debug: false,
+  };
+
   public static readonly Pep = {
-    Debug: false,
-    FallbackEffect: Effect.Deny as Effect,
+    bias: PepBias.Deny,
+    debug: false,
+    fallbackEffect: Effect.Deny as Effect,
   };
 
   public static readonly Pdp = {
-    Debug: true,
-    CombiningAlgorithm: CombiningAlgorithm.PermitUnlessDeny as CombiningAlgorithm,
+    debug: true,
+    combiningAlgorithm: CombiningAlgorithm.PermitUnlessDeny as CombiningAlgorithm,
     // The fallback decision when:
     // a) a rule, policy or a policy set isn't valid
     // (What happens when a rule within a policy or
-    //  a policy within a polciy set is invalid? Should add a flag to blow up?)
+    //  a policy within a policy set is invalid? Should add a flag to blow up?)
     // b) the combining algorithm isn't valid
-    FallbackDecision: Decision.Deny as Decision,
 
 
-    TargetOperation: Operation.Intersection as Operation, // !!!
-  };
-
-  public static readonly Pip = {
-    Debug: false,
+    fallbackDecision: Decision.Deny as Decision,
+    targetOperation: Operation.Intersection as Operation, // !!!
   };
 
   public static readonly Prp = {
-    CacheIdElements: true,
-    CacheUrlElements: true,
-    Debug: false,
+    cacheIdElements: true,
+    cacheUrlElements: true,
+    debug: false,
   };
 
-  public static readonly Pap = {
-    Debug: false,
+  public static readonly Pip = {
+    debug: false,
   };
 
   public static readonly Language = {
-    Debug: false,
+    debug: false,
   };
 
   public static readonly Validate = {
-    Debug: false,
+    debug: false,
   };
 }

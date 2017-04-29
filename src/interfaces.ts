@@ -126,7 +126,7 @@ export interface Resource {
 // elements with the same Category attribute if the PDP implements the multiple decision
 // profile, see [Multi]. Under other conditions, it is a syntax error if there are multiple
 // <Attributes> elements with the same Category (see Section 7.19.2 for error codes).
-export interface Context {
+export interface Settings {
   // This attribute is used to request that the PDP return a list of all fully applicable
   // policies and policy sets which were used in the decision as a part of the decision response.
   returnPolicyList?: boolean; // False
