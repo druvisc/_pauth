@@ -2,7 +2,7 @@ import { Decision, Effect, PepBias, } from '../constants';
 import { Obligation, Advice } from '../interfaces';
 import { isArray } from '../utils';
 import { Singleton } from '../classes/singleton';
-import { Settings } from '../context';
+import { Settings } from '../settings';
 import { Pdp } from './pdp';
 
 const context: any = {};
@@ -20,10 +20,10 @@ const context: any = {};
 // In any case any advice in the decision may be safely ignored by the PEP.
 
 class Pep extends Singleton {
-  private static readonly Tag: string = 'Pep';
+  private static readonly tag: string = 'Pep';
 
   public static EvaluateRequest(context: Settings) {
-    const tag: string = `${Pep.Tag}.EvaluateRequest()`;
+    const tag: string = `${Pep.tag}.EvaluateRequest()`;
     // RETURNED ADVICES AND OBLIGATIONS
     // Decision response?
     const response = {
@@ -38,7 +38,7 @@ class Pep extends Singleton {
   }
 
   public static EvaluateDecision(decision: Decision) {
-    const tag: string = `${Pep.Tag}.evaluateDecision()`;
+    const tag: string = `${Pep.tag}.evaluateDecision()`;
     const understandObligations: boolean = Pep.UnderstandAllObligations(context.obligations || []);
 
     if (context.pep.bias === PepBias.Deny) {
@@ -66,7 +66,7 @@ class Pep extends Singleton {
   // !!! Has to be checked if it's ok and can be done, then return true.
   //  What it entails depends on the user? Check if server available etc?
   public static UnderstandAllObligations(obligations: Obligation[]): boolean {
-    const tag: string = `${Pep.Tag}.understandAllObligations()`;
+    const tag: string = `${Pep.tag}.understandAllObligations()`;
     obligations = isArray(obligations) ? obligations : [];
     if (context.pep.debug) console.log(tag, 'obligations:', obligations);
     const understandAllObligations: boolean = obligations.reduce((v, obligation) =>
@@ -79,7 +79,7 @@ class Pep extends Singleton {
   // Allow pauth /obligation/ requests to set if obligation is or isnt available!!!!
   // NOISSSS
   public static UnderstandObligation(obligation: Obligation): boolean {
-    const tag: string = `${Pep.Tag}.understandAllObligation()`;
+    const tag: string = `${Pep.tag}.understandAllObligation()`;
     const understandObligation: boolean = true;
     if (context.pep.debug) console.log(tag, 'understandObligation:', understandObligation);
     return understandObligation;

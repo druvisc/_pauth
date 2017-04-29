@@ -47,7 +47,7 @@ interface Error {
 
 // The system entity that evaluates applicable policy and renders an authorization decision.
 export class Pdp extends Singleton {
-  private static readonly Tag: string = 'Pdp';
+  private static readonly tag: string = 'Pdp';
 
   public static readonly isRule = (v: any): boolean => !!v.rules;
   public static readonly isPolicy = (v: any): boolean => !!v.rules;
@@ -62,7 +62,7 @@ export class Pdp extends Singleton {
   // subject-id attribute does not match "med.example.com".
 
   public static EvaluateDecisionRequest(context: Settings): Decision {
-    const tag: string = `${Pdp.Tag}.EvaluateDecisionRequest()`;
+    const tag: string = `${Pdp.tag}.EvaluateDecisionRequest()`;
     const policies: Policy[] = Prp.RetrieveContextPolicies(context);
     if (Settings.Pdp.debug) console.log(tag, 'policies:', policies);
     const policySets: PolicySet[] = Prp.RetrieveContextPolicySets(context);
@@ -81,7 +81,7 @@ export class Pdp extends Singleton {
   }
 
   public static EvaluatePolicy(policy: Policy, context: Settings): Decision {
-    const tag: string = `${Pdp.Tag}.EvaluatePolicy()`;
+    const tag: string = `${Pdp.tag}.EvaluatePolicy()`;
     if (Settings.Pdp.debug) console.log(tag, 'policy:', policy);
 
     const targetMatch: boolean | Decision = Pdp.EvaluateTarget(policy, context);
@@ -96,7 +96,7 @@ export class Pdp extends Singleton {
 
   // 7.11. Rule evaluation
   public static EvaluateRule(rule: Rule, context/*: Settings*/): Effect | Decision {
-    const tag: string = `${Pdp.Tag}.${rule.id}.EvaluateRule()`;
+    const tag: string = `${Pdp.tag}.${rule.id}.EvaluateRule()`;
     // if (Settings.Pdp.debug) console.log(tag, 'rule:', rule);
 
     const targetMatch: boolean | Decision = Pdp.EvaluateTarget(rule, context);
@@ -112,14 +112,14 @@ export class Pdp extends Singleton {
 
   // 7.7 Target evaluation
   public static EvaluateTarget(element: Rule | Policy | PolicySet, context: Settings): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.(Element - ${element.id}).EvaluateTarget()`;
+    const tag: string = `${Pdp.tag}.(Element - ${element.id}).EvaluateTarget()`;
     const anyOf: string[][] = element.target;
     const result: boolean | Decision = Pdp.EvaluateAnyOf(anyOf, context);
     return result;
   }
 
   public static EvaluateAnyOf(anyOf: string[][], context: Settings): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.EvaluateAnyOf()`;
+    const tag: string = `${Pdp.tag}.EvaluateAnyOf()`;
     const results: (boolean | Decision)[] = anyOf.map(allOf => Pdp.EvaluateAllOf(allOf, context));
     if (Settings.Pdp.debug) console.log(tag, 'results:', results);
 
@@ -137,7 +137,7 @@ export class Pdp extends Singleton {
   }
 
   public static EvaluateCondition(rule: Rule, context: Settings): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.(Rule - ${rule.id}).EvaluateCondition()`;
+    const tag: string = `${Pdp.tag}.(Rule - ${rule.id}).EvaluateCondition()`;
     if (Settings.Pdp.debug) console.log(tag, 'rule.condition:', rule.condition);
     if (!rule.condition) {
       if (Settings.Pdp.debug) console.log(tag, 'No condition - evaluates to true.');
@@ -151,7 +151,7 @@ export class Pdp extends Singleton {
 
   // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
   public static ExpressionToDecision(str: string, context: Settings): boolean | Decision {
-    const tag: string = `${Pdp.Tag}.ExpressionToDecision()`;
+    const tag: string = `${Pdp.tag}.ExpressionToDecision()`;
     const expression: string = Language.StrToExpression(str, context);
     if (Settings.Pdp.debug) console.log(tag, 'expression:', expression);
     if (!expression) {
@@ -192,7 +192,7 @@ export class Pdp extends Singleton {
 
   // Pass down combining algo?
   public static CombineDecision(policy: Policy | PolicySet, context: Settings, combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Decision {
-    const tag: string = `${Pdp.Tag}.CombineDecision()`;
+    const tag: string = `${Pdp.tag}.CombineDecision()`;
     switch (combiningAlgorithm) {
       case CombiningAlgorithm.DenyOverrides: return Pdp.DenyOverrides(policy, context);
       case CombiningAlgorithm.PermitOverrides: return Pdp.PermitOverrides(policy, context);

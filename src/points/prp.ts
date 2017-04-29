@@ -46,6 +46,9 @@ export class Prp extends Singleton {
     return policySets;
   }
 
+  /** The bootstrap process has to ensure that after it successfully finishes,
+   * all the policies and elements are valid and useable for execution.
+   */
   // TODO: Async
   public static Bootstrap(): void {
     const tag: string = `${Prp.tag}.Bootstrap()`;
