@@ -44,8 +44,9 @@ export class Settings extends Singleton {
   };
 
   public static readonly Pep = {
-    bias: PepBias.Deny,
     debug: false,
+    isGateway: true,
+    bias: PepBias.Deny,
     fallbackEffect: Effect.Deny as Effect,
     // TODO: Implement
     fulfillAdviceBeforeEffect: true,

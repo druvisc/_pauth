@@ -25,6 +25,7 @@ export class Prp extends Singleton {
 
   private static bootstrapped: boolean = false;
 
+  // TODO: Async
   private static RetrieveRules(context: Settings): any[] {
     const tag: string = `${Prp.tag}.RetrieveRules()`;
     const rules: any[] = []; // DB
@@ -32,13 +33,15 @@ export class Prp extends Singleton {
     return rules;
   }
 
+  // TODO: Async
   private static RetrievePolicies(context: Settings): any[] {
     const tag: string = `${Prp.tag}.RetrievePolicies()`;
-    const policies: any[] = [];  // DB
+    const policies: any[] = []; // DB
     if (Settings.Prp.debug) console.log(tag, 'policies:', policies);
     return policies;
   }
 
+  // TODO: Async
   private static RetrievePolicySets(context: Settings): any[] {
     const tag: string = `${Prp.tag}.RetrievePolicySets()`;
     const policySets: any[] = []; // DB
@@ -46,7 +49,8 @@ export class Prp extends Singleton {
     return policySets;
   }
 
-  /** The bootstrap process has to ensure that after it successfully finishes,
+  /**
+   * The bootstrap process has to ensure that after it successfully finishes,
    * all the policies and elements are valid and useable for execution.
    */
   // TODO: Async

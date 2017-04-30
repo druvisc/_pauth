@@ -1,3 +1,6 @@
+import { Singleton } from '../classes/singleton';
+import { Settings } from '../settings';
+
 // The system entity that acts as a source of attribute values.
 
 // 7.3.5 Attribute Retrieval 3294
@@ -7,4 +10,15 @@
 // but the context handler is responsible for obtaining and supplying the requested values
 // by whatever means it deems appropriate, including by retrieving them from one or more Policy Information Points.
 
+export enum PipInterface {
+  Http,
+}
 
+// TODO: How to define which interface to use?
+export class Pip extends Singleton {
+  private static readonly tag: string = 'Pep';
+
+  private static readonly httpEndpoints = {};
+
+
+}

@@ -20,7 +20,7 @@ export class Bootstrap extends Singleton {
 
   private static readonly getId = (element: Rule | Policy | PolicySet): id => {
     const id: id = Bootstrap.normalizeId(element.id);
-    if (!id) Bootstrap.errors.push(new Error(`Element ${id} (useful, I know) has an invalid id.`));
+    if (!id) Bootstrap.errors.push(TypeError(`Element ${id} (useful, I know) has an invalid id.`));
     return id;
   }
 
@@ -39,7 +39,7 @@ export class Bootstrap extends Singleton {
 
   private static readonly getEffect = (element: Rule): number | string => {
     const id: number | string = Bootstrap.normalizeId(element.id);
-    if (!id) Bootstrap.errors.push(new Error(`Rule ${element.id} (useful, I know) has an invalid Effect.`));
+    if (!id) Bootstrap.errors.push(TypeError(`Rule ${element.id} (useful, I know) has an invalid Effect.`));
     return id;
   }
 
@@ -65,14 +65,14 @@ export class Bootstrap extends Singleton {
 
   public static readonly getTarget = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet): string[][] => {
     const target: string[][] = Bootstrap.normalizeTarget(element.target) || Bootstrap.normalizeTarget(parent.target);
-    if (!target) Bootstrap.errors.push(new Error(`Element ${element.id} has an invalid target.`));
+    if (!target) Bootstrap.errors.push(TypeError(`Element ${element.id} has an invalid target.`));
     return target;
   }
 
 
   private static readonly getCondition = (element: Rule): string[][] => {
     const condition: string[][] = Bootstrap.normalizeTarget(element.condition);
-    if (!condition) Bootstrap.errors.push(new Error(`Rule ${element.id} has an invalid condition.`));
+    if (!condition) Bootstrap.errors.push(TypeError(`Rule ${element.id} has an invalid condition.`));
     return condition;
   }
 
@@ -80,7 +80,7 @@ export class Bootstrap extends Singleton {
   // TODO: Implement.
   private static readonly getObligations = (element: Rule | Policy | PolicySet): Obligation[] => {
     const obligations: Obligation[] = []; // normalizeTarget(element.obligations);
-    if (!obligations) Bootstrap.errors.push(new Error(`Element ${element.id} has invalid obligations.`));
+    if (!obligations) Bootstrap.errors.push(TypeError(`Element ${element.id} has invalid obligations.`));
     return obligations;
   }
 
@@ -88,7 +88,7 @@ export class Bootstrap extends Singleton {
   // TODO: Implement.
   private static readonly getAdvice = (element: Rule | Policy | PolicySet): Advice[] => {
     const advice: Advice[] = []; // normalizeTarget(element.advice);
-    if (!advice) Bootstrap.errors.push(new Error(`Element ${element.id} has invalid advice.`));
+    if (!advice) Bootstrap.errors.push(TypeError(`Element ${element.id} has invalid advice.`));
     return advice;
   }
 
@@ -98,21 +98,21 @@ export class Bootstrap extends Singleton {
 
   private static readonly getCombiningAlgorithm = (element: Policy | PolicySet): CombiningAlgorithm => {
     const combiningAlgorithm: CombiningAlgorithm = Bootstrap.normalizeCombiningAlgorithm(element.combiningAlgorithm);
-    if (!combiningAlgorithm) Bootstrap.errors.push(new Error(`Element ${element.id} has an invalid CombiningAlgorithm.`));
+    if (!combiningAlgorithm) Bootstrap.errors.push(TypeError(`Element ${element.id} has an invalid CombiningAlgorithm.`));
     return combiningAlgorithm;
   }
 
 
   private static readonly getIds = (element: Policy | PolicySet, key: string): id[] => {
     const ids: id[] = element[key].map(Bootstrap.normalizeId);
-    if (ids.some(id => !id)) Bootstrap.errors.push(new Error(`Element ${element.id} has invalid ${key}.`));
+    if (ids.some(id => !id)) Bootstrap.errors.push(TypeError(`Element ${element.id} has invalid ${key}.`));
     return ids;
   }
 
 
   private static readonly getUrls = (element: Policy | PolicySet, key: string): url[] => {
     const urls: url[] = element[key].map(Bootstrap.normalizeUrl);
-    if (urls.some(url => !url)) Bootstrap.errors.push(new Error(`Element ${element.id} has invalid ${key}.`));
+    if (urls.some(url => !url)) Bootstrap.errors.push(TypeError(`Element ${element.id} has invalid ${key}.`));
     return urls;
   }
 

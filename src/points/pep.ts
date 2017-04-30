@@ -1,10 +1,9 @@
 import { Decision, Effect, PepBias, } from '../constants';
-import { Obligation, Advice } from '../interfaces';
+import { Obligation, Advice, id } from '../interfaces';
 import { isArray } from '../utils';
 import { Singleton } from '../classes/singleton';
 import { Settings } from '../settings';
 import { Pdp } from './pdp';
-
 
 // Durr i dont have a pep..
 
@@ -24,24 +23,41 @@ const context: any = {};
 // authorization decision as described in one of the following sub-sections.
 // In any case any advice in the decision may be safely ignored by the PEP.
 
+/// TODO: Add parse request, request authentication.
+
+
+// TODO: Write set up steps, ie, set up id retrieval etc.
+
 export class Pep extends Singleton {
   private static readonly tag: string = 'Pep';
 
-  public static EvaluateRequest(context: any) {
+  // TODO: Write how to implement this.
+  private static async RetrieveSubjectId(context: any): Promise<id> {
+    const id: id = 1;
+    return id;
+  }
+
+  public static async EvaluateAuthorizationRequest(context: any, next: Function) {
     const tag: string = `${Pep.tag}.EvaluateRequest()`;
+    if (Settings.Pep.isGateway) {
+      context = {
+        action: {
+          method: context.request.method,
+        },
+        resource: {
+          id: context.request.headers.host,
+        },
+        subject: {
+          id: await Pep.RetrieveSubjectId(context),
+        }
+      };
+    }
 
-
-    // RETURNED ADVICES AND OBLIGATIONS
-    // Decision response?
-    const response = {
-      decision: Decision.Deny,
-      advice: [],
-      obligations: [],
-    };
-
-    const decision: Decision = Pdp.EvaluateDecisionRequest(context);
+    const decision: Decision = await Pdp.EvaluateDecisionRequest(context);
     if (Settings.Pep.debug) console.log(tag, 'decision:', decision);
-
+    // TODO: Obligations, advice.
+    context.response.body = decision;
+    await next;
   }
 
   public static EvaluateDecision(decision: Decision) {

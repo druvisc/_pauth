@@ -10,7 +10,7 @@ export interface Rule {
   version: version; // Added, not in XACML.
   effect: Effect;
   description?: string;
-  target?: string[][];
+  target: string[][];
   condition?: string[][]; // Added possibility to OR them like the target.
   obligations?: Obligation[];
   advice?: Advice[];
@@ -27,7 +27,7 @@ export interface Policy {
   // defaults?: any;
   // combinerParameters: any;
   // ruleCombinerParameters: any;
-  target?: string[][]; // Unlike in XACML, can inherit from PolicySet.
+  target: string[][]; // Unlike in XACML, can inherit from PolicySet.
   // variableDefinition: any; // Custom handlers..?
   ruleIds?: id[];
   ruleUrls?: url[];
@@ -45,7 +45,7 @@ export interface PolicySet {
   description?: string;
   // issuer?: string;
   // defaults?: any;
-  target?: string[][]; // Unlike in XACML, can inherit from PolicySet.
+  target: string[][]; // Unlike in XACML, can inherit from PolicySet.
   policySetIds?: id[];
   policySetUrls?: url[];
   policySets?: PolicySet[];
@@ -99,13 +99,21 @@ export interface Obligation {
 
 
 
-export interface Subject {
-  id: string | number;
+export interface Action {
+  method: HttpMethod;
 }
 
+// TODO: How to set up the predefined resource attributes? If the resource can be a date, url etc anything.
 export interface Resource {
-  id: string | number;
+  id?: id;
+  path?: string;
 }
+
+export interface Subject {
+  id?: id; // For unauthenticated.
+}
+
+
 
 
 
@@ -126,7 +134,7 @@ export interface Resource {
 // elements with the same Category attribute if the PDP implements the multiple decision
 // profile, see [Multi]. Under other conditions, it is a syntax error if there are multiple
 // <Attributes> elements with the same Category (see Section 7.19.2 for error codes).
-export interface Settings {
+export interface Context {
   // This attribute is used to request that the PDP return a list of all fully applicable
   // policies and policy sets which were used in the decision as a part of the decision response.
   returnPolicyList?: boolean; // False

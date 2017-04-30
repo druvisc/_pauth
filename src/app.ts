@@ -19,30 +19,27 @@ const app = module.exports = koa();
  * 5. pep return decision
  */
 
-Prp.Bootstrap();
-
+// TODO: Create middleware 'prepare Pep context'?
 app.use(logger());
-app.use(evaluateRequest);
+app.use(Pep.EvaluateAuthorizationRequest);
+app.listen(Settings.port);
+
+
+/// TODO: Add parse request, request authentication. !!
+
 
 // User has to be authenticated right hurr (even for PEP).
-async function evaluateRequest(ctx, next) {
   // TODO: Better check out 5.42 Element <Request>.
-  const context = Object.assign({}, ctx.request.body, {
-    // No matter what overrides these keys in the request? Perhaps symbols should be used?
-    action: {
 
-    },
-    resource: {
+// async function evaluateRequest(ctx) {
 
-    },
-  });
 
-  await Pdp.EvaluateAuthorizationRequest(context);
-  await Pdp.CombineDecision(context);
-  await Pep.EvaluateDecision(context);
-  await next;
-  // TODO: Set status code, headers?
-  ctx.response.body = await Pep.EvaluateResponse(context);
-}
+//   await Pep.EvaluateAuthorizationRequest(context);
+//   await Pdp.EvaluateDecisionRequest(context);
+//   await Pep.EvaluateDecision(context);
+//   // TODO: Set status code, headers?
+//   // ctx.response.body
+//   // Either send back deny or contact back end for data.
+//   await Pep.EvaluateResponse(context, ctx);
+// }
 
-app.listen(Settings.port);

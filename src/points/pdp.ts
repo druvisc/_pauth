@@ -60,8 +60,7 @@ export class Pdp extends Singleton {
   // rule in this 805 policy. The requested resource matches the <Target> element and the
   // requested action matches the 806 <Target> element, but the requesting
   // subject-id attribute does not match "med.example.com".
-
-  public static EvaluateDecisionRequest(context: Settings): Decision {
+  public static async EvaluateDecisionRequest(context: any, next: Function): Promise<Decision> {
     const tag: string = `${Pdp.tag}.EvaluateDecisionRequest()`;
     const policies: Policy[] = Prp.RetrieveContextPolicies(context);
     if (Settings.Pdp.debug) console.log(tag, 'policies:', policies);
@@ -75,9 +74,12 @@ export class Pdp extends Singleton {
       policySets,
     };
 
-    const decision: Decision = Pdp.CombineDecision(policySet, context);
-    if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
-    return decision;
+    // const decision: Decision = Pdp.CombineDecision(policySet, context);
+    // if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
+    // return decision;
+
+
+    await next;
   }
 
   public static EvaluatePolicy(policy: Policy, context: Settings): Decision {
@@ -204,7 +206,7 @@ export class Pdp extends Singleton {
       default:
         if (Settings.Pdp.debug) console.log(tag, 'Invalid combiningAlgorithm:', combiningAlgorithm,
           '. Will use the Pdp.FallbackDecision:', Decision[Settings.Pdp.fallbackDecision]);
-        if (Settings.Development) expect(combiningAlgorithm).to.be.oneOf(CombiningAlgorithms);
+        if (Settings.development) expect(combiningAlgorithm).to.be.oneOf(CombiningAlgorithms);
         return Settings.Pdp.fallbackDecision;
     }
   }
