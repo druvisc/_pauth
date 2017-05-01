@@ -1,49 +1,21 @@
+import { Singleton } from '../classes/singleton';
 import { Decision, Effect, PepBias, } from '../constants';
 import { Obligation, Advice, id } from '../interfaces';
-import { isArray } from '../utils';
-import { Singleton } from '../classes/singleton';
 import { Settings } from '../settings';
+import { isArray } from '../utils';
 import { Pdp } from './pdp';
-
-// Durr i dont have a pep..
-
-
-
-const context: any = {};
-
-// The system entity that performs access control,
-// by making decision requests and enforcing authorization decisions.
-
-// The PEP sends the request for access to the context handler in its native request format,
-// optionally including attributes of the subjects, resource, action, environment and other
-// categories.
-
-// An application functions in the role of the PEP if it guards access to a set of resources
-// and asks the 3209 PDP for an authorization decision. The PEP MUST abide by the
-// authorization decision as described in one of the following sub-sections.
-// In any case any advice in the decision may be safely ignored by the PEP.
-
-/// TODO: Add parse request, request authentication.
-
-
-// TODO: Write set up steps, ie, set up id retrieval etc.
 
 export class Pep extends Singleton {
   private static readonly tag: string = 'Pep';
 
-  // TODO: Write how to implement this.
-  private static async RetrieveSubjectId(context: any): Promise<id> {
-    const id: id = 1;
-    return id;
-  }
-
-  public static async EvaluateAuthorizationRequest(context: any, next: Function) {
-    const tag: string = `${Pep.tag}.EvaluateRequest()`;
+  public static async EvaluateAuthorizationRequest(context, next): Promise<void> {
+    const tag: string = `${Pep.tag}.EvaluateAuthorizationRequest()`;
     if (Settings.Pep.isGateway) {
       context = {
         action: {
           method: context.request.method,
         },
+        // TODO: Retrieve resource id?
         resource: {
           id: context.request.headers.host,
         },
@@ -53,19 +25,65 @@ export class Pep extends Singleton {
       };
     }
 
-    const decision: Decision = await Pdp.EvaluateDecisionRequest(context);
-    if (Settings.Pep.debug) console.log(tag, 'decision:', decision);
-    // TODO: Obligations, advice.
-    context.response.body = decision;
+    await Pdp.EvaluateDecisionRequest(context);
+    await Pep.EvaluateDecisionResponse(context);
+    await Pep.EvaluateAuthorizationResponse(context);
     await next;
   }
 
-  public static EvaluateDecision(decision: Decision) {
-    const tag: string = `${Pep.tag}.evaluateDecision()`;
-    const understandObligations: boolean = Pep.UnderstandAllObligations(context.obligations || []);
+  // TODO: Write how to implement this.
+  // TODO: Same for resource?
+  private static async RetrieveSubjectId(context: any): Promise<id> {
+    const tag: string = `${Pep.tag}.RetrieveSubjectId()`;
+    // Promise with id?
+    // TODO: Add registerX functions, set methods in a hashmap, all must be set for the program to run (can be checked in bootstrap process? maybe a different one than prp)
+    const id: id = undefined;
+    if (Settings.Pep.debug) console.log(tag, 'id:', id);
+    return id;
+  }
 
-    if (context.pep.bias === PepBias.Deny) {
-      return decision === Decision.Permit && understandObligations ? Effect.Permit : Effect.Deny;
+  public static async EvaluateDecisionResponse(context: any): Promise<Decision> {
+    const tag: string = `${Pep.tag}.EvaluateDecisionResponse()`;
+
+    // TODO: Return fulfilled/unfulfilled obligations and advice
+    // or just change the final decision in the call
+    // (then there's no info what went wrong)?
+
+    // TODO: Obligation wrapper - reference to the obligation/advice to fulfill,
+    // and whether it was or was not fulfilled.
+    // TODO: Instead of fulfilled boolean, pass in the whole response!!!!
+    // const obligationWrapper: { obligation: Obligation, fulfilled: boolean} = { obligation: {} as Obligation, fulfilled: true };
+    // TODO: If pep isnt gateway... add flag to fulfill the obligations and advice here or just forward to backend since it's technically the pep then?
+    // Could just send ids of the obligations, advice.
+
+    // TODO: COuld add a flag separately on each obligation and advice whether to fulfill it? Whats the piint? Only if pep is backend and backend doesnt want to deal with that shiit
+    // Only case.
+
+    let obligationsFulfilled: boolean;
+    let adviceFulfilled: boolean;
+    if (Settings.Pep.isGateway) {
+      const obligationContainers: any[] = await Pep.EvaluateObligations(context);
+      // TODO: Not all gun be simple responses, make the returned object simple to mock.
+      // IE, obligation to request 10 services, 3 fail - have to allow a custom error message or smth.
+      obligationsFulfilled = obligationContainers.reduce((result, obligation) => !result ? false : obligation.response.statusCode === 201, true);
+      // Advice can not be checked if obligations werent ok
+      if (obligationsFulfilled) {
+        const adviceContainers: any[] = await Pep.EvaluateAdvice(context);
+        adviceFulfilled = adviceContainers.reduce((result, advice) => !result ? false : advice.response.statusCode === 201, true);
+      }
+    } else {
+      // (!Settings.Pep.isGateway && !Settings.Pep.fulfillObligations)
+      // Pep doesnt care about the obligations and advice since its not the real pep.
+      obligationsFulfilled = true;
+      adviceFulfilled = true;
+    }
+
+    // TODO: just set decision in obligatins if it changes
+    // logic too complex to kee all just here
+    const decision: Decision = context.decision;
+
+    if (Settings.Pep.bias === PepBias.Deny) {
+      return decision === Decision.Permit && obligationsFulfilled ? Effect.Permit : Effect.Deny;
       // if (decision === Decision.Permit && understandObligations) {
       //   return Effect.Permit;
       // } else {
@@ -73,41 +91,46 @@ export class Pep extends Singleton {
       // }
     }
 
-    if (context.pep.bias === PepBias.Permit) {
-      return decision === Decision.Deny && understandObligations ? Effect.Deny : Effect.Permit;
+    if (Settings.Pep.bias === PepBias.Permit) {
+      return decision === Decision.Deny && obligationsFulfilled ? Effect.Deny : Effect.Permit;
       // if (decision === Decision.Deny && understandObligations) {
       //   return Effect.Deny;
       // } else {
       //   return Effect.Permit;
       // }
     }
+
+    return context.body.decision;
+
   }
 
+  public static async EvaluateAuthorizationResponse(context: any): Promise<void> {
+    context.response.body = context.decision;
+  }
 
   // How does this work? Does it really just gets checked? And if all checks out, return
   // effect and then carry out the obligations?
   // !!! Has to be checked if it's ok and can be done, then return true.
   //  What it entails depends on the user? Check if server available etc?
-  public static UnderstandAllObligations(obligations: Obligation[]): boolean {
-    const tag: string = `${Pep.tag}.understandAllObligations()`;
-    obligations = isArray(obligations) ? obligations : [];
-    if (context.pep.debug) console.log(tag, 'obligations:', obligations);
-    const understandAllObligations: boolean = obligations.reduce((v, obligation) =>
-      v && Pep.UnderstandObligation(obligation), true);
-    if (context.pep.debug) console.log(tag, 'understandAllObligations:', understandAllObligations);
-    return understandAllObligations;
+  public static async EvaluateObligations(obligations: Obligation[]): Promise<any[]> {
+    // const tag: string = `${Pep.tag}.understandAllObligations()`;
+    // obligations = isArray(obligations) ? obligations : [];
+    // if (context.pep.debug) console.log(tag, 'obligations:', obligations);
+    // const understandAllObligations: boolean = obligations.reduce((v, obligation) =>
+    //   v && Pep.UnderstandObligation(obligation), true);
+    // if (context.pep.debug) console.log(tag, 'understandAllObligations:', understandAllObligations);
+    // return understandAllObligations;
+    return [];
   }
 
   // Obligation checking enum? Off/On? Global obligation map by id?
   // Allow pauth /obligation/ requests to set if obligation is or isnt available!!!!
   // NOISSSS
-  public static UnderstandObligation(obligation: Obligation): boolean {
-    const tag: string = `${Pep.tag}.understandAllObligation()`;
-    const understandObligation: boolean = true;
-    if (context.pep.debug) console.log(tag, 'understandObligation:', understandObligation);
-    return understandObligation;
+  public static async EvaluateAdvice(obligation: Obligation): Promise<any[]> {
+    // const tag: string = `${Pep.tag}.understandAllObligation()`;
+    // const understandObligation: boolean = true;
+    // if (context.pep.debug) console.log(tag, 'understandObligation:', understandObligation);
+    // return understandObligation;
+    return [];
   }
 }
-
-
-// decisionToEffect -> return effect & fulfill obligations, advices

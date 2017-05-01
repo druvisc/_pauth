@@ -15,7 +15,7 @@ export class Language extends Singleton {
 
   // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
   // TODO: Validate query?
-  public static StrToExpression(str: string, context: Settings): string {
+  public static StrToExpression(str: string, context: any): string {
     const tag: string = `${Language.tag}.StrToExpression()`;
     if (Settings.Language.debug) console.log(tag, 'str:', str);
     const queries: string[] = Language.ExtractQueries(str, context);
@@ -40,7 +40,7 @@ export class Language extends Singleton {
     return str;
   }
 
-  public static ExtractQueries(str: string, context: Settings): string[] {
+  public static ExtractQueries(str: string, context: any): string[] {
     const tag: string = `${Language.tag}.ExtractQueries()`;
     const queries: string[] = [];
     let query: string = Language.StrToQuery(str);
