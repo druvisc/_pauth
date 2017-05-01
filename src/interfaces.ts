@@ -4,7 +4,7 @@ export type id = string | number;
 export type url = string;
 export type version = string | number;
 
-// 5.21 Element <Rule>
+// TODO: Implement advice, obligation, check other interfaces.
 export interface Rule {
   id: id;
   version: version; // Added, not in XACML.
@@ -12,11 +12,14 @@ export interface Rule {
   description?: string;
   target: string[][];
   condition?: string[][]; // Added possibility to OR them like the target.
+  obligationIds?: id[];
+  obligationUrls?: url[];
   obligations?: Obligation[];
+  adviceIds?: id[];
+  adviceUrls?: url[];
   advice?: Advice[];
 }
 
-// 5.14 Element <Policy>
 export interface Policy {
   id: id;
   version: version;
@@ -32,7 +35,11 @@ export interface Policy {
   ruleIds?: id[];
   ruleUrls?: url[];
   rules?: Rule[];
+  obligationIds?: id[];
+  obligationUrls?: url[];
   obligations?: Obligation[];
+  adviceIds?: id[];
+  adviceUrls?: url[];
   advice?: Advice[];
 }
 
@@ -52,7 +59,11 @@ export interface PolicySet {
   policyIds?: id[];
   policyUrls?: url[];
   policies?: Policy[];
+  obligationIds?: id[];
+  obligationUrls?: url[];
   obligations?: Obligation[];
+  adviceIds?: id[];
+  adviceUrls?: url[];
   advice?: Advice[];
   // combinerParameters: any;
   // policyCombinerParameters: any;

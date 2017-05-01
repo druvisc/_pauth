@@ -12,38 +12,40 @@ import { Language } from '../language';
 export class Prp extends Singleton {
   private static readonly tag: string = 'Prp';
 
-  private static readonly targetMap = {};
-  private static readonly externalTargetMap = {};
-
   private static ruleMap = {};
   private static policyMap = {};
   private static policySetMap = {};
+  private static obligationMap = {};
+  private static adviceMap = {};
 
   private static externalRuleMap = {};
   private static externalPolicyMap = {};
   private static externalPolicySetMap = {};
 
-  private static bootstrapped: boolean = false;
+  private static readonly policyTargetMap = {};
+  private static readonly policySetTargetMap = {};
 
+  private static readonly externalPolicyTargetMap = {};
+  private static readonly externalPolicySetTargetMap = {};
+
+  private static bootstrapped: boolean = false;
 
   private static async retrieveElements(elements: string, handler: string): Promise<any> {
     const tag: string = `${Prp.tag}.retrieveElements()`;
     throw Error(`${tag}: Cannot retrieve ${elements}. ${handler} is not registered with the Prp.`);
   }
-
   // Element accessors which MUST be defined by the end-user.
   public static _retrieveRules = () => Prp.retrieveElements('rules', '_retrieveRules');
   public static _retrievePolicies = () => Prp.retrieveElements('rules', '_retrievePolicies');
   public static _retrievePolicySets = () => Prp.retrieveElements('rules', '_retrievePolicySets');
-  // public static _retrieveObligationById = (id: id) => Prp.retrieveElementById(id, 'obligation', '_retrieveObligationById');
-  // public static _retrieveAdviceById = (id: id) => Prp.retrieveElementById(id, 'advice', '_retrieveAdviceById');
+  public static _retrieveObligations = () => Prp.retrieveElements('obligations', '_retrieveObligations');
+  public static _retrieveAdvice = () => Prp.retrieveElements('advice', '_retrieveAdvice');
 
 
   private static async retrieveElementById(id: id, element: string, handler: string): Promise<any> {
     const tag: string = `${Prp.tag}.retrieveElementById()`;
     throw Error(`${tag}: Cannot retrieve ${element} #${id}. ${handler} is not registered with the Prp.`);
   }
-
   // Element accessors by id which MUST be defined by the end-user.
   public static _retrieveRuleById = (id: id) => Prp.retrieveElementById(id, 'rule', '_retrieveRuleById');
   public static _retrievePolicyById = (id: id) => Prp.retrieveElementById(id, 'policy', '_retrievePolicyById');
@@ -51,24 +53,18 @@ export class Prp extends Singleton {
   // public static _retrieveObligationById = (id: id) => Prp.retrieveElementById(id, 'obligation', '_retrieveObligationById');
   // public static _retrieveAdviceById = (id: id) => Prp.retrieveElementById(id, 'advice', '_retrieveAdviceById');
 
+
   private static async retrieveElementByUrl(url: url): Promise<any> {
     const tag: string = `${Prp.tag}.retrieveElementByUrl()`;
     const request: Promise<any> = Request.get(url);
     return request;
   }
-
   // Element accessors by an url which MAY be defined by the end-user.
   public static _retrieveRuleByUrl = Prp.retrieveElementByUrl;
   public static _retrievePolicyByUrl = Prp.retrieveElementByUrl;
   public static _retrievePolicySetByUrl = Prp.retrieveElementByUrl;
   // public static _retrieveObligationByUrl = Prp.retrieveElementByUrl;
   // public static _retrieveAdviceByUrl = Prp.retrieveElementByUrl;
-
-
-  // TODO: Same for obligations and advice? Depends if they're an id, url or an obj..
-  // nope just id or url fuck ye but dafuq obligations gon be ? a callback?
-  // how u gon store dat bitch? have to register them..... ok so urls are just urls which get
-  // requested (simple request or with data?, how to get data)?, but ids are handlers which get attached?
 
   private static async retrieveRules(): Promise<any[]> {
     const tag: string = `${Prp.tag}.retrieveRules()`;
@@ -127,13 +123,13 @@ export class Prp extends Singleton {
   }
 
 
-  // private static async retrieveObligations(): Promise<any[]> {
-  //   const tag: string = `${Prp.tag}.retrieveObligation()`;
-  //   const obligations: any[] = undefined;
-  //   if (Settings.Prp.debug) console.log(tag, 'obligations:', obligations);
-  //   return obligations;
-  // }
+  private static async retrieveObligations(): Promise<any[]> {
+    const tag: string = `${Prp.tag}.retrieveObligation()`;
+    const request: Promise<any> = Prp._retrieveObligations();
+    return request;
+  }
 
+  // TODO: Create a function in PDP to fulfill an id obligation.
   // private static async retrieveObligationById(id: id): Promise<any> {
   //   const tag: string = `${Prp.tag}.retrieveObligationById()`;
   //   const obligation: any = undefined;
@@ -150,13 +146,13 @@ export class Prp extends Singleton {
   // }
 
 
-  // private static async retrieveAdvice(): Promise<any[]> {
-  //   const tag: string = `${Prp.tag}.retrieveAdvice()`;
-  //   const advice: any[] = undefined;
-  //   if (Settings.Prp.debug) console.log(tag, 'advice:', advice);
-  //   return advice;
-  // }
+  private static async retrieveAdvice(): Promise<any[]> {
+    const tag: string = `${Prp.tag}.retrieveAdvice()`;
+    const request: Promise<any> = Prp._retrieveAdvice();
+    return request;
+  }
 
+  // TODO: Create a function in PDP to fulfill an id advice.
   // private static async retrieveAdviceById(id: id): Promise<any> {
   //   const tag: string = `${Prp.tag}.retrieveAdviceById()`;
   //   const advice: any = undefined;
@@ -216,10 +212,22 @@ export class Prp extends Singleton {
       await [policyRequests, policySetRequests];
     }
 
-    const evaluatedPolicies: Policy[] = Object.keys(Prp.policyMap).
-      map(policyId => Prp.evaluatePolicyRulesAndTargets(Prp.policyMap[policyId]));
-    const evaluatedPolicySets: PolicySet[] = Object.keys(Prp.policySetMap).
-      map(policySetId => Prp.evaluatePolicySetPoliciesAndTargets(Prp.policySetMap[policySetId]));
+    const advice: any[] = await Prp.retrieveAdvice();
+    advice.forEach(_advice => {
+      const advice: Advice = Bootstrap.getAdvice(_advice);
+      Prp.adviceMap[advice.id] = advice;
+    });
+
+    const obligations: any[] = await Prp.retrieveObligations();
+    obligations.forEach(_obligation => {
+      const obligation: Obligation = Bootstrap.getObligation(_obligation);
+      Prp.obligationMap[obligation.id] = obligation;
+    });
+
+    const evaluatedPolicies: Policy[] = Object.keys(Prp.policyMap).map(policyId =>
+      Prp.evaluatePolicyRulesAndTargets(Prp.policyMap[policyId]));
+    const evaluatedPolicySets: PolicySet[] = Object.keys(Prp.policySetMap).map(policySetId =>
+      Prp.evaluatePolicySetPoliciesAndTargets(Prp.policySetMap[policySetId]));
 
     // if (Settings.Prp.debug) {
     //   console.log(tag, 'evaluatedPolicies:', evaluatedPolicies);
@@ -250,8 +258,6 @@ export class Prp extends Singleton {
     return Prp.bootstrapped;
   }
 
-
-
   // Evaluate the policy's target, it's rules and rule target elements.
   private static evaluatePolicyRulesAndTargets(element: Policy, parent: PolicySet = {} as PolicySet): Policy {
     return Object.assign({}, element, {
@@ -272,35 +278,29 @@ export class Prp extends Singleton {
     return Object.assign({}, element, {
       target: Bootstrap.getTarget(element, parent),
       policies: [
-        ...element.policyIds.map(id => Object.assign({}, Prp.policyMap[id], {
-          target: Bootstrap.getTarget(Prp.policyMap[id], element)
-        })),
-        ...element.policyUrls.map(url => Object.assign({}, Prp.externalPolicyMap[url], {
-          target: Bootstrap.getTarget(Prp.externalPolicyMap[url], element)
-        }))
+        ...element.policyIds.map(id => Prp.evaluatePolicyRulesAndTargets(Prp.policyMap[id], element)),
+        ...element.policyUrls.map(url => Prp.evaluatePolicyRulesAndTargets(Prp.externalPolicyMap[url], element))
       ],
       policySets: [
-        ...element.policySetIds.map(id => Object.assign({}, Prp.policySetMap[id], {
-          target: Bootstrap.getTarget(Prp.policySetMap[id], element)
-        })),
-        ...element.policySetUrls.map(url => Object.assign({}, Prp.externalPolicySetMap[url], {
-          target: Bootstrap.getTarget(Prp.externalPolicySetMap[url], element)
-        }))
+        ...element.policySetIds.map(id => Prp.evaluatePolicySetPoliciesAndTargets(Prp.policySetMap[id], element)),
+        ...element.policySetUrls.map(url => Prp.evaluatePolicySetPoliciesAndTargets(Prp.externalPolicySetMap[url], element))
       ],
     });
   }
 
   private static IndexPolicies(): void {
     const tag: string = `${Prp.tag}.IndexPolicies()`;
-    Prp.ElementsToTargetMap(Prp.policyMap, Prp.targetMap, null);
-    Prp.ElementsToTargetMap(Prp.policySetMap, Prp.targetMap, null);
-    if (Settings.Prp.debug) console.log(tag, 'targetMap:', Prp.targetMap);
-    Prp.ElementsToTargetMap(Prp.externalPolicyMap, Prp.externalTargetMap, null);
-    Prp.ElementsToTargetMap(Prp.externalPolicySetMap, Prp.externalTargetMap, null);
-    if (Settings.Prp.debug) console.log(tag, 'externalTargetMap:', Prp.externalTargetMap);
+    Prp.ElementsToTargetMap(Prp.policyMap, Prp.policyTargetMap);
+    if (Settings.Prp.debug) console.log(tag, 'policyTargetMap:', Prp.policyTargetMap);
+    Prp.ElementsToTargetMap(Prp.policySetMap, Prp.policySetTargetMap);
+    if (Settings.Prp.debug) console.log(tag, 'policySetTargetMap:', Prp.policySetTargetMap);
+    Prp.ElementsToTargetMap(Prp.externalPolicyMap, Prp.externalPolicyTargetMap);
+    if (Settings.Prp.debug) console.log(tag, 'externalPolicyTargetMap:', Prp.externalPolicyTargetMap);
+    Prp.ElementsToTargetMap(Prp.externalPolicySetMap, Prp.externalPolicySetTargetMap);
+    if (Settings.Prp.debug) console.log(tag, 'externalPolicySetTargetMap:', Prp.externalPolicySetTargetMap);
   }
 
-  private static ElementsToTargetMap(elementMap: any, targetMap: any, context: any): void {
+  private static ElementsToTargetMap(elementMap: any, targetMap: any): void {
     const tag: string = `${Prp.tag}.ElementsToTargetMap()`;
     Object.keys(elementMap).forEach(elementId =>
       elementMap[elementId].target.forEach(target =>
@@ -317,88 +317,72 @@ export class Prp extends Singleton {
     const tag: string = `${Prp.tag}.RetrieveContextPolicies()`;
     if (!Prp.bootstrapped) throw Error(`Prp has not been bootstrapped.`);
 
-    const idPolicies: Policy[] = Settings.Prp.cacheIdElements ?
-      Prp.TargetMapThroughCacheToElements(Prp.targetMap, Prp.policyMap, context) as Policy[] :
-      await Prp.TargetMapThroughDatabaseToElements(Prp.targetMap, context) as Policy[];
+    const idPolicies: any[] = Settings.Prp.cacheIdElements ?
+      Prp.TargetMapThroughCacheToElements(context, Prp.policyTargetMap, Prp.policyMap) :
+      await Prp.TargetMapThroughPromiseToElements(context, Prp.policyTargetMap, Prp.retrievePolicyById);
+    const evaluatedIdPolicies: Policy[] = idPolicies.map(policy =>
+      Prp.evaluatePolicyRulesAndTargets(policy));
+    if (Settings.Prp.debug) console.log(tag, 'evaluatedIdPolicies:', evaluatedIdPolicies);
 
-    const urlPolicies: Policy[] = Settings.Prp.cacheUrlElements ?
-      Prp.TargetMapThroughCacheToElements(Prp.targetMap, Prp.externalPolicyMap, context) as Policy[] :
-      await Prp.TargetMapThroughExternalToElements(Prp.targetMap, context) as Policy[];
+    const urlPolicies: any[] = Settings.Prp.cacheUrlElements ?
+      Prp.TargetMapThroughCacheToElements(context, Prp.externalPolicyTargetMap, Prp.policyMap) :
+      await Prp.TargetMapThroughPromiseToElements(context, Prp.externalPolicyTargetMap, Prp.retrievePolicyByUrl);
+    const evaluatedUrlPolicies: Policy[] = urlPolicies.map(policy =>
+      Prp.evaluatePolicyRulesAndTargets(policy));
+    if (Settings.Prp.debug) console.log(tag, 'evaluatedUrlPolicies:', evaluatedUrlPolicies);
 
     const policies: Policy[] = [...idPolicies, ...urlPolicies];
-    if (Settings.Prp.debug) console.log(tag, 'evaluatedPolicies:', policies);
     return policies;
   }
 
-  // TODO: Async
   public static async RetrieveContextPolicySets(context: any): Promise<PolicySet[]> {
     const tag: string = `${Prp.tag}.RetrieveContextPolicySets()`;
     if (!Prp.bootstrapped) throw Error(`Prp has not been bootstrapped.`);
 
-    const idPolicySets: PolicySet[] = Settings.Prp.cacheIdElements ?
-      Prp.TargetMapThroughCacheToElements(Prp.targetMap, Prp.policySetMap, context) as PolicySet[] :
-      // TODO: Implement
-      await Prp.TargetMapThroughDatabaseToElements(Prp.targetMap, context) as PolicySet[];
+    const idPolicySets: any[] = Settings.Prp.cacheIdElements ?
+      Prp.TargetMapThroughCacheToElements(context, Prp.policySetTargetMap, Prp.policySetMap) :
+      await Prp.TargetMapThroughPromiseToElements(context, Prp.policySetTargetMap, Prp.retrievePolicySetById);
+    const evaluatedIdPolicySets: PolicySet[] = idPolicySets.map(policySet =>
+      Prp.evaluatePolicySetPoliciesAndTargets(policySet));
+    if (Settings.Prp.debug) console.log(tag, 'evaluatedIdPolicySets:', evaluatedIdPolicySets);
 
-    const urlPolicySets: PolicySet[] = Settings.Prp.cacheUrlElements ?
-      Prp.TargetMapThroughCacheToElements(Prp.targetMap, Prp.externalPolicySetMap, context) as PolicySet[] :
-      // TODO: Implement
-      await Prp.TargetMapThroughExternalToElements(Prp.targetMap, context) as PolicySet[];
+    const urlPolicySets: any[] = Settings.Prp.cacheIdElements ?
+      Prp.TargetMapThroughCacheToElements(context, Prp.externalPolicySetTargetMap, Prp.externalPolicySetMap) :
+      await Prp.TargetMapThroughPromiseToElements(context, Prp.externalPolicySetTargetMap, Prp.retrievePolicySetByUrl);
+    const evaluatedUrlPolicySets: PolicySet[] = urlPolicySets.map(policySet =>
+      Prp.evaluatePolicySetPoliciesAndTargets(policySet));
+    if (Settings.Prp.debug) console.log(tag, 'evaluatedUrlPolicySets:', evaluatedUrlPolicySets);
 
     const policySets: PolicySet[] = [...idPolicySets, ...urlPolicySets];
-    if (Settings.Prp.debug) console.log(tag, 'evaluatedPolicySets:', policySets);
     return policySets;
   }
 
   private static TargetMapThroughCacheToElements(context: any, targetMap: any, elementMap: any): (Policy | PolicySet)[] {
     const tag: string = `${Prp.tag}.TargetMapThroughCacheToElements()`;
-    const accessedElements: string[] = Object.keys(context);
-    const queries: string[] = flatten(accessedElements.map(accessedElement => {
-      const accessedAttributes: string[] = Object.keys(accessedElement);
-      const queries: string[] = accessedAttributes.map(accessedAttribute =>
-        `$${accessedElement}.${accessedAttribute}`);
-      return queries;
-    }));
+    const queries: string[] = Prp.RetrieveContextQueries(context);
     if (Settings.Prp.debug) console.log(tag, 'queries:', queries);
-    const elementIds: id[] = unique(flatten(queries.map(query => targetMap[query])));
-    if (Settings.Prp.debug) console.log(tag, 'elementIds:', elementIds);
-    const elements: (Policy | PolicySet)[] = elementIds.map(elementId => elementMap[elementId]);
+    const elementIdentifiers: (id | url)[] = unique(flatten(queries.map(query => targetMap[query])));
+    if (Settings.Prp.debug) console.log(tag, 'elementIdentifiers:', elementIdentifiers);
+    const elements: (Policy | PolicySet)[] = elementIdentifiers.map(identifier => elementMap[identifier]);
     if (Settings.Prp.debug) console.log(tag, 'elements:', elements);
-    const evaluatedElements: (Policy | PolicySet)[] = elements.map(element =>
-      elementMap === Prp.policyMap ? Prp.evaluatePolicyRulesAndTargets(element) :
-        Prp.evaluatePolicySetPoliciesAndTargets(element));
-    // if (Settings.Prp.debug) console.log(tag, 'evaluatedElements:', evaluatedElements);
     return elements;
   }
 
-  // TODO: Implement
-  // TODO: Async
-  private static async TargetMapThroughDatabaseToElements(targetMap: any, context: any): Promise<(Policy | PolicySet)[]> {
+  private static async TargetMapThroughPromiseToElements(context: any, targetMap: any, retrieval: Function): Promise<(Policy | PolicySet)[]> {
     const tag: string = `${Prp.tag}.TargetMapThroughDatabaseToElements()`;
-    const accessedElements: string[] = Object.keys(context);
-    const queries: string[] = flatten(accessedElements.map(accessedElement => {
-      const accessedAttributes: string[] = Object.keys(accessedElement);
-      const queries: string[] = accessedAttributes.map(accessedAttribute =>
-        `$${accessedElement}.${accessedAttribute}`);
-      return queries;
-    }));
+    const queries: string[] = Prp.RetrieveContextQueries(context);
     if (Settings.Prp.debug) console.log(tag, 'queries:', queries);
-    const elementIds: id[] = unique(flatten(queries.map(query => targetMap[query])));
-    if (Settings.Prp.debug) console.log(tag, 'elementIds:', elementIds);
-
-    const elements: (Policy | PolicySet)[] = []; // elementIds.map(elementId => elementMap[elementId]);
-    // if (Settings.Prp.debug) console.log(tag, 'elements:', elements);
-    // const evaluatedElements: (Policy | PolicySet)[] = elements.map(element =>
-    //   elementMap === Prp.policyMap ? Prp.evaluatePolicyRulesAndTargets(element) :
-    //     Prp.evaluatePolicySetPoliciesAndTargets(element));
-    // // if (Settings.Prp.debug) console.log(tag, 'evaluatedElements:', evaluatedElements);
-
-    return elements;
+    const elementIdentifiers: (id | url)[] = unique(flatten(queries.map(query => targetMap[query])));
+    if (Settings.Prp.debug) console.log(tag, 'elementIdentifiers:', elementIdentifiers);
+    const elementRequests: Promise<(Policy | PolicySet)>[] = elementIdentifiers.map(identifier => retrieval(identifier));
+    return Promise.all(elementRequests).then(elements => {
+      if (Settings.Prp.debug) console.log(tag, 'elements:', elements);
+      return elements;
+    });
   }
 
-  // TODO: Implement
-  private static async TargetMapThroughExternalToElements(targetMap: any, context: any): Promise<(Policy | PolicySet)[]> {
-    const tag: string = `${Prp.tag}.TargetMapThroughExternalToElements()`;
+  private static RetrieveContextQueries(context: any): string[] {
+    const tag: string = `${Prp.tag}.RetrieveContextQueries()`;
     const accessedElements: string[] = Object.keys(context);
     const queries: string[] = flatten(accessedElements.map(accessedElement => {
       const accessedAttributes: string[] = Object.keys(accessedElement);
@@ -406,17 +390,6 @@ export class Prp extends Singleton {
         `$${accessedElement}.${accessedAttribute}`);
       return queries;
     }));
-    if (Settings.Prp.debug) console.log(tag, 'queries:', queries);
-    const elementIds: id[] = unique(flatten(queries.map(query => targetMap[query])));
-    if (Settings.Prp.debug) console.log(tag, 'elementIds:', elementIds);
-
-    const elements: (Policy | PolicySet)[] = []; // elementIds.map(elementId => elementMap[elementId]);
-    // if (Settings.Prp.debug) console.log(tag, 'elements:', elements);
-    // const evaluatedElements: (Policy | PolicySet)[] = elements.map(element =>
-    //   elementMap === Prp.policyMap ? Prp.evaluatePolicyRulesAndTargets(element) :
-    //     Prp.evaluatePolicySetPoliciesAndTargets(element));
-    // // if (Settings.Prp.debug) console.log(tag, 'evaluatedElements:', evaluatedElements);
-
-    return elements;
+    return queries;
   }
 }
