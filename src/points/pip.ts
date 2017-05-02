@@ -1,7 +1,7 @@
 import { id } from '../interfaces';
 import { Singleton } from '../classes/singleton';
 import { Settings } from '../settings';
-import { createMap } from '../utils';
+import { createMap, includes, } from '../utils';
 
 // TODO: Perhaps in the future introduce interfaces (HTTP, etc).
 export class Pip extends Singleton {
@@ -15,30 +15,23 @@ export class Pip extends Singleton {
     return value;
   }
 
-
-  public static async retrieveAttributes(context: any, attributesToElementMap: any): Promise<any> {
+  public static async retrieveAttributes(context: any, attributeMap: any): Promise<any> {
     const tag: string = `${Pip.tag}.retrieveAttribute()`;
-    // TODO: Check if data not available already
-    Object.keys(attributesToElementMap).forEach(element => {
-      const id: id = context[element].id;
-      const attributes: string[] = attributesToElementMap[element];
-      attributes.forEach(attribute => {
 
+    // TODO: Write that existing elements can or can not be checked.
+    Object.keys(attributeMap).forEach(element => {
+      const id: id = context[element].id;
+      const attributes: string[] = attributeMap[element];
+      const existingAttributes: string[] = Object.keys(context[element]);
+      const attributesToRetrieve: string[] = attributes.filter(attribute =>
+        !includes(existingAttributes, attribute));
+      attributesToRetrieve.forEach(attribute => {
+        const request: Promise<any> = Promise.resolve({});
+        request.then(res => merge.recursive(context[element], res));
       });
     });
 
-    const mapExample1 = {
-      subject: {
-        id: 1,
-        attributes: ['name', 'role'],
-      },
-      resource: {
-        id: 1,
-        attributes: ['author'],
-      },
-    };
-
-    const mapExample2 = {
+    const mapExample = {
       subject: ['name', 'role'],
       resource: ['author'],
     };

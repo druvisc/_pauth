@@ -78,5 +78,23 @@ describe('Rule', () => {
     expect(decision).to.be.equal(Effect.Permit);
 
     console.log(JSON.stringify(ofAgeRuleAuthenticated));
+
+    const ruleHandlerExample: RuleHandler = async (context: any, rule: Rule, Pip: Pip): Promise<boolean | Decision> => {
+      const subject: Subject = context.subject;
+      const resource: Resource = context.resource;
+      const attributeMap = {
+        subject: ['role'],
+        resource: ['author'],
+      };
+
+      await Pip.retrieveAttributes(context, attributeMap);
+
+      if (subject.role === 'editor' || resource.author === subject.id) {
+        return true;
+      }
+
+      return false;
+    };
+
   });
 });

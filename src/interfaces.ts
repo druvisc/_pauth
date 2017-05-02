@@ -1,26 +1,52 @@
-import { Effect, AuthorizationDecision, Decision, CombiningAlgorithm, PepBias, StatusCode, HttpMethod, Environment, } from './constants';
+import {
+  Effect, AuthorizationDecision, Decision, CombiningAlgorithm, PepBias, StatusCode,
+  HttpMethod, Environment,
+} from './constants';
 
 export type id = string | number;
 export type url = string;
 export type version = string | number;
 
-// TODO: Implement advice, obligation, check other interfaces.
+// TODO: Perhaps support policy list in the future?
+// Not returning a combined decision might be a bit trickier.
+// Both probably primarily used for debugging.
+export interface Context {
+  // returnPolicyList?: boolean; // False
+  // combinedDecision?: boolean; // True
+  action: Action;
+  subject: Subject;
+  resource: Resource;
+  environment?: Environment;
+  additional?: any;
+}
+
 
 export interface Action {
   method: HttpMethod;
+  operation?: string;
 }
 
+// TODO:
 export interface Resource {
-  url: string;
+  id?: id;
+  path?: string;
 }
+
+export interface Subject {
+  id?: id;
+}
+
+export interface Environment { }
+
 
 export interface Rule {
   id: id;
-  version: version; // Added, not in XACML.
+  version?: version;
   effect: Effect;
   description?: string;
   target: string[][];
-  condition?: string[][]; // Added possibility to OR them like the target.
+  condition?: string[][];
+  handler?: RuleHandler;
   obligationIds?: id[];
   obligationUrls?: url[];
   obligations?: Obligation[];
@@ -31,7 +57,7 @@ export interface Rule {
 
 export interface Policy {
   id: id;
-  version: version;
+  version?: version;
   combiningAlgorithm: CombiningAlgorithm;
   // maxDelegationDepth?: number;
   description?: string;
@@ -39,7 +65,7 @@ export interface Policy {
   // defaults?: any;
   // combinerParameters: any;
   // ruleCombinerParameters: any;
-  target: string[][]; // Unlike in XACML, can inherit from PolicySet.
+  target: string[][];
   // variableDefinition: any; // Custom handlers..?
   ruleIds?: id[];
   ruleUrls?: url[];
@@ -52,16 +78,15 @@ export interface Policy {
   advice?: Advice[];
 }
 
-// 5.1 Element <PolicySet>
 export interface PolicySet {
   id: id;
-  version: version;
+  version?: version;
   combiningAlgorithm: CombiningAlgorithm;
   // maxDelegationDepth?: number;
   description?: string;
   // issuer?: string;
   // defaults?: any;
-  target: string[][]; // Unlike in XACML, can inherit from PolicySet.
+  target: string[][];
   policySetIds?: id[];
   policySetUrls?: url[];
   policySets?: PolicySet[];
@@ -81,90 +106,35 @@ export interface PolicySet {
 
 export interface Obligation {
   id: id;
-  version: version;
+  version?: version;
   description?: string;
-  effect: Effect;
-  // Attributes necessary to fulfill the obligation.
+  effect?: Effect;
   attributes?: string[];
 }
 
 export interface Advice {
   id: id;
-  version: version;
+  version?: version;
   description?: string;
-  effect: Effect;
+  effect?: Effect;
   attributes?: string[];
 }
 
-
-
-
-
-
-
-
-
-
-
-
-// TODO: How to set up the predefined resource attributes? If the resource can be a date, url etc anything.
-export interface Resource {
-  id?: id;
-  path?: string;
-}
-
-export interface Subject {
-  id?: id; // For unauthenticated.
+export interface RuleHandler {
+  id: id;
+  version?: version;
+  description?: string;
+  handler: Function | url;
+  attributeMap?: any;
 }
 
 
 
 
 
-// 5.42 Element <Request>
-// export interface Context {
-//   pepBias: PepBias
-//   action: HttpMethod
-//   subject: Subject
-//   resource: Resource
-// }
-// The <Request> element is an abstraction layer used by the policy language.
-// For simplicity of expression, this document describes policy evaluation in terms of
-// operations on the context. However a conforming PDP is not required to actually
-// instantiate the context in the form of an XML document. But, any system conforming to
-// the XACML specification MUST produce exactly the same authorization decisions as if
-// all the inputs had been transformed into the form of an <Request> element.
-// The <Request> element contains <Attributes> elements. There may be multiple <Attributes>
-// elements with the same Category attribute if the PDP implements the multiple decision
-// profile, see [Multi]. Under other conditions, it is a syntax error if there are multiple
-// <Attributes> elements with the same Category (see Section 7.19.2 for error codes).
-export interface Context {
-  // This attribute is used to request that the PDP return a list of all fully applicable
-  // policies and policy sets which were used in the decision as a part of the decision response.
-  returnPolicyList?: boolean; // False
 
-  // This attribute is used to request that the PDP combines multiple decisions
-  // into a single decision. The use of this attribute is specified in [Multi].
-  // If the PDP does not implement the relevant functionality in [Multi],
-  // then the PDP must return an Indeterminate with a status code of Status.ProcessingError
-  // if it receives a request with this attribute set to “true”.
-  combinedDecision?: boolean; // True
 
-  // The subject requesting access.
-  subject?: Subject;
 
-  // The resource the subject is trying to access.
-  resource?: Resource;
-
-  // The action (http method) which the subject is trying to apply to the resource.
-  action?: HttpMethod;
-
-  // PEP environment.
-  environment?: Environment; // no Environment.Production
-
-  // Additional information.
-  additional: any;
-}
 
 
 

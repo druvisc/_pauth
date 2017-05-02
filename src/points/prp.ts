@@ -4,25 +4,24 @@ import { Request } from '../classes/request';
 import { Settings } from '../settings';
 import { Bootstrap } from '../bootstrap';
 import { Language } from '../language';
-import { id, url, Rule, Policy, PolicySet, Obligation, Advice, } from '../interfaces';
+import { id, url, Rule, Policy, PolicySet, Obligation, Advice, RuleHandler, } from '../interfaces';
 import { Effect, Effects, CombiningAlgorithm, CombiningAlgorithms, } from '../constants';
 import { flatten, unique, } from '../utils';
 
-// TODO: Hash the queries of the policies? Why?
-// Because they're needed to retrieve the information if the target applies.
-// Currently only accessed target is hashed.
 export class Prp extends Singleton {
   private static readonly tag: string = 'Prp';
 
   private static ruleMap = {};
   private static policyMap = {};
   private static policySetMap = {};
-  private static obligationMap = {};
-  private static adviceMap = {};
 
   private static externalRuleMap = {};
   private static externalPolicyMap = {};
   private static externalPolicySetMap = {};
+
+  private static readonly adviceMap = {};
+  private static readonly obligationMap = {};
+  private static readonly ruleHandlerMap = {};
 
   private static readonly policyTargetMap = {};
   private static readonly policySetTargetMap = {};
@@ -43,6 +42,7 @@ export class Prp extends Singleton {
   public static _retrievePolicySets = () => Prp.retrieveElements('rules', '_retrievePolicySets');
   public static _retrieveObligations = () => Prp.retrieveElements('obligations', '_retrieveObligations');
   public static _retrieveAdvice = () => Prp.retrieveElements('advice', '_retrieveAdvice');
+  public static _retrieveRuleHandlers = () => Prp.retrieveElements('ruleHandlers', '_retrieveRuleHandlers');
 
   private static async retrieveRules(): Promise<any[]> {
     const tag: string = `${Prp.tag}.retrieveRules()`;
@@ -55,22 +55,30 @@ export class Prp extends Singleton {
     const request: Promise<any[]> = Prp._retrievePolicies();
     return request;
   }
+
   private static async retrievePolicySets(): Promise<any[]> {
     const tag: string = `${Prp.tag}.retrievePolicySets()`;
     const request: Promise<any[]> = Prp._retrievePolicySets();
     return request;
   }
+
   private static async retrieveObligations(): Promise<any[]> {
     const tag: string = `${Prp.tag}.retrieveObligation()`;
     const request: Promise<any> = Prp._retrieveObligations();
     return request;
   }
+
   private static async retrieveAdvice(): Promise<any[]> {
     const tag: string = `${Prp.tag}.retrieveAdvice()`;
     const request: Promise<any> = Prp._retrieveAdvice();
     return request;
   }
 
+  private static async retrieveRuleHandlers(): Promise<any[]> {
+    const tag: string = `${Prp.tag}.retrieveRuleHandlers()`;
+    const request: Promise<any> = Prp._retrieveRuleHandlers();
+    return request;
+  }
 
   private static async retrieveElementById(id: id, element: string, handler: string): Promise<any> {
     const tag: string = `${Prp.tag}.retrieveElementById()`;
@@ -195,6 +203,12 @@ export class Prp extends Singleton {
     obligations.forEach(_obligation => {
       const obligation: Obligation = Bootstrap.getObligation(_obligation);
       Prp.obligationMap[obligation.id] = obligation;
+    });
+
+    const ruleHandlers: any[] = await Prp.retrieveRuleHandlers();
+    ruleHandlers.forEach(_ruleHandler => {
+      const ruleHandler: RuleHandler = Bootstrap.getRuleHandler(_ruleHandler);
+      Prp.ruleHandlerMap[ruleHandler.id] = ruleHandler;
     });
 
     const evaluatedPolicies: Policy[] = Object.keys(Prp.policyMap).map(policyId =>

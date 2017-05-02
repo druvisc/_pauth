@@ -1,10 +1,12 @@
 import { expect } from 'chai';
 import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, } from '../constants';
-import { PolicySet, Policy, Rule, } from '../interfaces';
+import { url, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice, } from '../interfaces';
 import { Singleton } from '../classes/singleton';
+import { Request } from '../classes/request';
 import { Language } from '../language';
 import { Settings } from '../settings';
-import { isBoolean } from '../utils';
+
+import { isBoolean, isFunction, isString, } from '../utils';
 import { Prp } from './prp';
 import { Pip } from './pip';
 
@@ -92,8 +94,8 @@ export class Pdp extends Singleton {
   }
 
   public static async denyOverrides(context: any, policyOrSet: Policy | PolicySet, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
-    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let deny: boolean = false;
     let indeterminate: boolean = false;
@@ -124,8 +126,8 @@ export class Pdp extends Singleton {
   }
 
   public static async permitOverrides(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
-    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let permit: boolean = false;
     let indeterminate: boolean = false;
@@ -156,8 +158,8 @@ export class Pdp extends Singleton {
   }
 
   public static async denyUnlessPermit(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
-    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let permit: boolean = false;
     if (policySet) {
@@ -179,8 +181,8 @@ export class Pdp extends Singleton {
   }
 
   public static async permitUnlessDeny(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
-    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let deny: boolean = false;
     if (policySet) {
@@ -202,8 +204,8 @@ export class Pdp extends Singleton {
   }
 
   public static async firstApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
-    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let decision: Decision = Decision.NotApplicable;
     if (policySet) {
@@ -221,8 +223,8 @@ export class Pdp extends Singleton {
   }
 
   public static async onlyOneApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
-    const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
+    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let indeterminate: boolean = false;
     let result: Decision = Decision.NotApplicable;
@@ -232,7 +234,8 @@ export class Pdp extends Singleton {
         if (indeterminate) return Decision.Indeterminate;
         const decision: Decision = await Pdp.combineDecision(context, policy);
         indeterminate = decision === Decision.Indeterminate ||
-          // The current decision AND a previous decision is something other than NotApplicable.
+          // The current decision AND a previous decision is something other
+          // than NotApplicable (return Indeterminate).
           decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
         result = decision;
       }
@@ -241,7 +244,8 @@ export class Pdp extends Singleton {
         if (indeterminate) return Decision.Indeterminate;
         const decision: Decision = await Pdp.evaluateRule(context, rule);
         indeterminate = decision === Decision.Indeterminate ||
-          // The current decision AND a previous decision is something other than NotApplicable.
+          // The current decision AND a previous decision is something other
+          // than NotApplicable (return Indeterminate).
           decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
         result = decision;
       }
@@ -253,23 +257,52 @@ export class Pdp extends Singleton {
 
   public static async evaluateRule(context: any, rule: Rule): Promise<Effect | Decision> {
     const tag: string = `${Pdp.tag}.${rule.id}.evaluateRule()`;
-    // if (Settings.Pdp.debug) console.log(tag, 'rule:', rule);
-
+    if (Settings.Pdp.debug) console.log(tag, 'rule:', rule);
     const targetMatch: boolean | Decision = Pdp.evaluateTarget(context, rule);
     if (Settings.Pdp.debug) console.log(tag, 'targetMatch:', targetMatch);
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
-    const attributeMap: any = Prp.retrieveRuleAttributeMap(rule);
+    const ruleHandler: RuleHandler = rule.handler;
+    const attributeMap: any = ruleHandler && ruleHandler.attributeMap || Prp.retrieveRuleAttributeMap(rule);
     if (Settings.Pdp.debug) console.log(tag, 'attributeMap:', attributeMap);
     await Pip.retrieveAttributes(context, attributeMap);
 
-    // TODO: !!! EVALUATE AND ADD ADVICES AND OBLIGATIONS !!!
-    // TODO: Check if condition isn 't custom handler.
+    let decision: boolean | Decision;
+    if (!ruleHandler) {
+      decision = Pdp.evaluateCondition(context, rule);
+    } else if (ruleHandler) {
+      const handlerFunction: Function = isFunction(ruleHandler.handler) ? ruleHandler.handler as Function : null;
+      const handlerUrl: url = handlerFunction === null ? ruleHandler.handler as url : null;
 
-    const decision: boolean | Decision = Pdp.evaluateCondition(context, rule);
+      if (handlerFunction) {
+        decision = await handlerFunction(context, rule, Pip);
+      } else if (handlerUrl) {
+        decision = await Request.post({ uri: handlerUrl, body: context, });
+      } else {
+        throw Error(`Rule #${rule.id} ruleHandler has an invalid handler. Must be either a Function or a url (pass npm's 'valid-url').`);
+      }
+    } else {
+      // No condition or ruleHandler defined.
+      decision = true;
+    }
     if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
-    return decision === true ? rule.effect : Decision.NotApplicable;
+    const effect: Effect | Decision = decision === true ? rule.effect : Decision.NotApplicable;
+    if (Settings.Pdp.debug) console.log(tag, 'effect:', effect);
+
+    const obligations: Obligation[] = rule.obligations.filter(obligation =>
+      !obligation.effect || obligation.effect === effect
+    ).map(obligation => {
+      // Evaluate?
+    });
+
+    const advice: Advice[] = rule.advice.map(advice =>
+      !advice.effect || advice.effect === effect
+    ).map(advice => {
+      // Evaluate?
+    });
+
+    return effect;
   }
 
   // 7.7 Target evaluation
