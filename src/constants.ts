@@ -118,14 +118,14 @@ export const CombiningAlgorithms: string[] = [
   // For further implementation see "C.2 Deny-overrides".
   'DenyOverrides',
 
-  // CombiningAlgorithm.DenyOverrides is already ordered.
-  // OrderedDenyOverrides,
+  // CombiningAlgorithm.denyOverrides is already ordered.
+  // OrdereDdenyOverrides,
 
   // If any decision is Decision.Permit the result is Decision.Permit.
   // For further implementation see "C.4 Permit-overrides".
   'PermitOverrides',
 
-  // CombiningAlgorithm.PermitOverrides is already ordered.
+  // CombiningAlgorithm.permitOverrides is already ordered.
   // OrderedPermitOverrides,
 
   // If any decision is Decision.Permit the result is Decision.Permit, otherwise Decision.Deny.

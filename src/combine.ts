@@ -14,13 +14,13 @@
 //   public static Combine(policy: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Decision {
 //     const tag: string = `${Combine.Tag}.Combine()`;
 //     switch (combiningAlgorithm) {
-//       case CombiningAlgorithm.DenyOverrides: return Combine.DenyOverrides(context, policy);
-//       case CombiningAlgorithm.PermitOverrides: return Combine.PermitOverrides(context, policy);
-//       case CombiningAlgorithm.DenyUnlessPermit: return Combine.DenyUnlessPermit(context, policy);
-//       case CombiningAlgorithm.PermitUnlessDeny: return Combine.PermitUnlessDeny(context, policy);
-//       case CombiningAlgorithm.PermitOverrides: return Combine.PermitOverrides(context, policy);
-//       case CombiningAlgorithm.FirstApplicable: return Combine.FirstApplicable(context, policy);
-//       case CombiningAlgorithm.OnlyOneApplicable: return Combine.OnlyOneApplicable(context, policy);
+//       case CombiningAlgorithm.denyOverrides: return Combine.denyOverrides(context, policy);
+//       case CombiningAlgorithm.permitOverrides: return Combine.permitOverrides(context, policy);
+//       case CombiningAlgorithm.denyUnlessPermit: return Combine.denyUnlessPermit(context, policy);
+//       case CombiningAlgorithm.permitUnlessDeny: return Combine.permitUnlessDeny(context, policy);
+//       case CombiningAlgorithm.permitOverrides: return Combine.permitOverrides(context, policy);
+//       case CombiningAlgorithm.firstApplicable: return Combine.firstApplicable(context, policy);
+//       case CombiningAlgorithm.onlyOneApplicable: return Combine.onlyOneApplicable(context, policy);
 //       default:
 //         if (Settings.Combine.debug) console.log(tag, 'Invalid combiningAlgorithm:', combiningAlgorithm,
 //           '. Will use the Combine.FallbackDecision:', Decision[Settings.Combine.FallbackDecision]);
@@ -29,7 +29,7 @@
 //     }
 //   }
 
-//   public static DenyOverrides(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+//   public static denyOverrides(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
 //     const policy: Policy = Combine.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
 //     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -48,7 +48,7 @@
 //     } else {
 //       policy.rules.forEach(rule => {
 //         if (deny) return Decision.Deny;
-//         const decision: Decision = Combine.EvaluateRule(rule, context);
+//         const decision: Decision = Combine.evaluateRule(rule, context);
 //         deny = decision === Decision.Deny;
 //         indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
 //         permit = permit ? true : decision === Decision.Permit;
@@ -61,7 +61,7 @@
 //     return Decision.NotApplicable;
 //   }
 
-//   public static PermitOverrides(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+//   public static permitOverrides(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
 //     const policy: Policy = Combine.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
 //     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -80,7 +80,7 @@
 //     } else {
 //       policy.rules.forEach(rule => {
 //         if (permit) return Decision.Permit;
-//         const decision: Decision = Combine.EvaluateRule(rule, context);
+//         const decision: Decision = Combine.evaluateRule(rule, context);
 //         permit = decision === Decision.Permit;
 //         indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
 //         deny = deny ? true : decision === Decision.Deny;
@@ -93,7 +93,7 @@
 //     return Decision.NotApplicable;
 //   }
 
-//   public static DenyUnlessPermit(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+//   public static denyUnlessPermit(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
 //     const policy: Policy = Combine.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
 //     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -107,7 +107,7 @@
 //     } else {
 //       policy.rules.forEach(rule => {
 //         if (permit) return Decision.Permit;
-//         const decision: Decision = Combine.EvaluateRule(rule, context);
+//         const decision: Decision = Combine.evaluateRule(rule, context);
 //         permit = decision === Decision.Permit;
 //       });
 //     }
@@ -116,7 +116,7 @@
 //     return Decision.Deny;
 //   }
 
-//   public static PermitUnlessDeny(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+//   public static permitUnlessDeny(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
 //     const policy: Policy = Combine.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
 //     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -130,7 +130,7 @@
 //     } else {
 //       policy.rules.forEach(rule => {
 //         if (deny) return Decision.Deny;
-//         const decision: Decision = Combine.EvaluateRule(rule, context);
+//         const decision: Decision = Combine.evaluateRule(rule, context);
 //         deny = decision === Decision.Deny;
 //       });
 //     }
@@ -139,7 +139,7 @@
 //     return Decision.Permit;
 //   }
 
-//   public static FirstApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+//   public static firstApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
 //     const policy: Policy = Combine.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
 //     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -149,12 +149,12 @@
 //         , Decision.NotApplicable);
 //     } else {
 //       return policy.rules.reduce((decision, rule) =>
-//         decision !== Decision.NotApplicable ? decision : Combine.EvaluateRule(rule, context)
+//         decision !== Decision.NotApplicable ? decision : Combine.evaluateRule(rule, context)
 //         , Decision.NotApplicable);
 //     }
 //   }
 
-//   public static OnlyOneApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
+//   public static onlyOneApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm) {
 //     const policy: Policy = Combine.IsPolicySet(policyOrSet) ? undefined : policyOrSet;
 //     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -172,7 +172,7 @@
 //     } else {
 //       policy.rules.forEach(rule => {
 //         if (indeterminate) return Decision.Indeterminate;
-//         const decision: Decision = Combine.EvaluateRule(rule, context);
+//         const decision: Decision = Combine.evaluateRule(rule, context);
 //         indeterminate = decision === Decision.Indeterminate ||
 //           decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
 //         result = decision;

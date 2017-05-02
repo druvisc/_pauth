@@ -5,6 +5,15 @@ export type url = string;
 export type version = string | number;
 
 // TODO: Implement advice, obligation, check other interfaces.
+
+export interface Action {
+  method: HttpMethod;
+}
+
+export interface Resource {
+  url: string;
+}
+
 export interface Rule {
   id: id;
   version: version; // Added, not in XACML.
@@ -70,49 +79,33 @@ export interface PolicySet {
   // policySetCombinerParameters: any;
 }
 
-export interface Resource {
-  url: string;
-}
-
-
-// A conjunctive sequence of advice expressions which MUST evaluated
-// into advice by the PDP. The corresponding advice provide supplementary
-// information to the PEP in conjunction with the  authorization decision.
-// See 7.18.
-// A supplementary piece of information in a policy or policy set
-// which is provided to the PEP with the decision of the PDP.
-export interface Advice {
-  // The value of the advice identifier MAY be interpreted by the PEP.
-  id: string | number;
-
-  // The effect for which this advice must be provided to the PEP.
-  effect: Effect;
-
-  // Attributes necessary to fulfill the advice.
-  attributes?: string[];
-}
-
-
-// A conjunctive sequence of obligation expressions which MUST be evaluated
-// into obligations byt the PDP. The corresponding obligations MUST be fulfilled
-// by the PEP in conjunction with 2272 the authorization decision.
-// See 7.18, 7.2.
 export interface Obligation {
-  // The value of the obligation identifier SHALL be interpreted by the PEP.
-  id: string | number;
-
-  // The effect for which this obligation must be fulfilled by the PEP.
+  id: id;
+  version: version;
+  description?: string;
   effect: Effect;
-
   // Attributes necessary to fulfill the obligation.
   attributes?: string[];
 }
 
-
-
-export interface Action {
-  method: HttpMethod;
+export interface Advice {
+  id: id;
+  version: version;
+  description?: string;
+  effect: Effect;
+  attributes?: string[];
 }
+
+
+
+
+
+
+
+
+
+
+
 
 // TODO: How to set up the predefined resource attributes? If the resource can be a date, url etc anything.
 export interface Resource {

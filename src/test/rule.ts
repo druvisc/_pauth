@@ -26,8 +26,13 @@ describe('Rule', () => {
       SpecialOffers: 'specialoffers',
     };
 
+    // TODO: The PDP could be made more sophisticated,
+    // so it knows which policies to drop sooner,
+    // i.e, same targets or conditions didn't apply.
+
     const targetAuthenticatedAlcohol: string[][] = [
       [
+        `$.subject.id`,
         `$.resource.route === '/${Controller.Products}/${Products.Alcohol}'`,
         `$.subject.role !== '${Role.Unauthenticated}'`
       ]
@@ -64,12 +69,12 @@ describe('Rule', () => {
       subject,
     };
 
-    let decision: Effect | Decision = Pdp.EvaluateRule(ofAgeRuleAuthenticated, context);
+    let decision: Effect | Decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
     expect(decision).to.be.equal(Decision.NotApplicable);
 
     subject.age = 21;
 
-    decision = Pdp.EvaluateRule(ofAgeRuleAuthenticated, context);
+    decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
     expect(decision).to.be.equal(Effect.Permit);
 
     console.log(JSON.stringify(ofAgeRuleAuthenticated));

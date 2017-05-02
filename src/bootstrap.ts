@@ -19,7 +19,7 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeId = (id: id): id =>
     isNumber(id) || isString(id) ? id : null
 
-  private static readonly getId = (element: Rule | Policy | PolicySet): id => {
+  private static readonly getId = (element: Rule | Policy | PolicySet | Obligation | Advice): id => {
     const id: id = Bootstrap.normalizeId(element.id);
     if (!id) Bootstrap.errors.push(TypeError(`Element ${id} (useful, I know) has an invalid id.`));
     return id;
@@ -29,7 +29,7 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeVersion = (version: version): version =>
     isString(version) || isNumber(version) ? version : null
 
-  private static readonly getVersion = (element: Rule | Policy | PolicySet): version => {
+  private static readonly getVersion = (element: Rule | Policy | PolicySet | Obligation | Advice): version => {
     const version: version = Bootstrap.normalizeVersion(element.version);
     return version;
   }
@@ -40,12 +40,12 @@ export class Bootstrap extends Singleton {
 
   private static readonly getEffect = (element: Rule): number | string => {
     const id: number | string = Bootstrap.normalizeId(element.id);
-    if (!id) Bootstrap.errors.push(TypeError(`Rule ${element.id} (useful, I know) has an invalid Effect.`));
+    if (!id) Bootstrap.errors.push(TypeError(`Rule ${element.id} has an invalid Effect. Must be one of: ${Effects}`));
     return id;
   }
 
 
-  private static readonly getDescription = (element: Rule | Policy | PolicySet): string => {
+  private static readonly getDescription = (element: Rule | Policy | PolicySet | Obligation | Advice): string => {
     const description: string = Bootstrap.normalizeString(element.description);
     return description;
   }
@@ -83,19 +83,19 @@ export class Bootstrap extends Singleton {
 
   private static readonly getCombiningAlgorithm = (element: Policy | PolicySet): CombiningAlgorithm => {
     const combiningAlgorithm: CombiningAlgorithm = Bootstrap.normalizeCombiningAlgorithm(element.combiningAlgorithm);
-    if (!combiningAlgorithm) Bootstrap.errors.push(TypeError(`Element ${element.id} has an invalid CombiningAlgorithm.`));
+    if (!combiningAlgorithm) Bootstrap.errors.push(TypeError(`Element ${element.id} has an invalid CombiningAlgorithm. Must be one of: ${CombiningAlgorithms}`));
     return combiningAlgorithm;
   }
 
 
-  private static readonly getIds = (element: Rule | Policy | PolicySet, key: string): id[] => {
+  private static readonly getIds = (element: Rule | Policy | PolicySet | Obligation | Advice, key: string): id[] => {
     const ids: id[] = element[key].map(Bootstrap.normalizeId);
     if (ids.some(id => !id)) Bootstrap.errors.push(TypeError(`Element ${element.id} has invalid ${key}.`));
     return ids;
   }
 
 
-  private static readonly getUrls = (element: Rule | Policy | PolicySet, key: string): url[] => {
+  private static readonly getUrls = (element: Rule | Policy | PolicySet | Obligation | Advice, key: string): url[] => {
     const urls: url[] = element[key].map(Bootstrap.normalizeUrl);
     if (urls.some(url => !url)) Bootstrap.errors.push(TypeError(`Element ${element.id} has invalid ${key}.`));
     return urls;

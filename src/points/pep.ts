@@ -5,6 +5,7 @@ import { Settings } from '../settings';
 import { isArray } from '../utils';
 import { Pdp } from './pdp';
 
+// TODO: Implement caching in the future.
 export class Pep extends Singleton {
   private static readonly tag: string = 'Pep';
 
@@ -20,21 +21,23 @@ export class Pep extends Singleton {
           id: context.request.headers.host,
         },
         subject: {
-          id: await Pep.RetrieveSubjectId(context),
+          id: await Pep.retrieveSubjectId(context),
         }
       };
     }
 
-    await Pdp.EvaluateDecisionRequest(context);
-    await Pep.EvaluateDecisionResponse(context);
-    await Pep.EvaluateAuthorizationResponse(context);
+    // TODO: Validate the context. Action, resource and subject should be present,
+    // and if theyre present, ids definitely must be present.
+    await Pdp.evaluateDecisionRequest(context);
+    await Pep.evaluateDecisionResponse(context);
+    await Pep.evaluateAuthorizationResponse(context);
     await next;
   }
 
   // TODO: Write how to implement this.
   // TODO: Same for resource?
-  private static async RetrieveSubjectId(context: any): Promise<id> {
-    const tag: string = `${Pep.tag}.RetrieveSubjectId()`;
+  private static async retrieveSubjectId(context: any): Promise<id> {
+    const tag: string = `${Pep.tag}.retrieveSubjectId()`;
     // Promise with id?
     // TODO: Add registerX functions, set methods in a hashmap, all must be set for the program to run (can be checked in bootstrap process? maybe a different one than prp)
     const id: id = undefined;
@@ -42,8 +45,8 @@ export class Pep extends Singleton {
     return id;
   }
 
-  public static async EvaluateDecisionResponse(context: any): Promise<Decision> {
-    const tag: string = `${Pep.tag}.EvaluateDecisionResponse()`;
+  public static async evaluateDecisionResponse(context: any): Promise<Decision> {
+    const tag: string = `${Pep.tag}.evaluateDecisionResponse()`;
 
     // TODO: Return fulfilled/unfulfilled obligations and advice
     // or just change the final decision in the call
@@ -62,13 +65,13 @@ export class Pep extends Singleton {
     let obligationsFulfilled: boolean;
     let adviceFulfilled: boolean;
     if (Settings.Pep.isGateway) {
-      const obligationContainers: any[] = await Pep.EvaluateObligations(context);
+      const obligationContainers: any[] = await Pep.evaluateObligations(context);
       // TODO: Not all gun be simple responses, make the returned object simple to mock.
       // IE, obligation to request 10 services, 3 fail - have to allow a custom error message or smth.
       obligationsFulfilled = obligationContainers.reduce((result, obligation) => !result ? false : obligation.response.statusCode === 201, true);
       // Advice can not be checked if obligations werent ok
       if (obligationsFulfilled) {
-        const adviceContainers: any[] = await Pep.EvaluateAdvice(context);
+        const adviceContainers: any[] = await Pep.evaluateAdvice(context);
         adviceFulfilled = adviceContainers.reduce((result, advice) => !result ? false : advice.response.statusCode === 201, true);
       }
     } else {
@@ -104,7 +107,7 @@ export class Pep extends Singleton {
 
   }
 
-  public static async EvaluateAuthorizationResponse(context: any): Promise<void> {
+  public static async evaluateAuthorizationResponse(context: any): Promise<void> {
     context.response.body = context.decision;
   }
 
@@ -112,7 +115,7 @@ export class Pep extends Singleton {
   // effect and then carry out the obligations?
   // !!! Has to be checked if it's ok and can be done, then return true.
   //  What it entails depends on the user? Check if server available etc?
-  public static async EvaluateObligations(obligations: Obligation[]): Promise<any[]> {
+  public static async evaluateObligations(obligations: Obligation[]): Promise<any[]> {
     // const tag: string = `${Pep.tag}.understandAllObligations()`;
     // obligations = isArray(obligations) ? obligations : [];
     // if (context.pep.debug) console.log(tag, 'obligations:', obligations);
@@ -126,7 +129,7 @@ export class Pep extends Singleton {
   // Obligation checking enum? Off/On? Global obligation map by id?
   // Allow pauth /obligation/ requests to set if obligation is or isnt available!!!!
   // NOISSSS
-  public static async EvaluateAdvice(obligation: Obligation): Promise<any[]> {
+  public static async evaluateAdvice(obligation: Obligation): Promise<any[]> {
     // const tag: string = `${Pep.tag}.understandAllObligation()`;
     // const understandObligation: boolean = true;
     // if (context.pep.debug) console.log(tag, 'understandObligation:', understandObligation);

@@ -6,17 +6,13 @@ import { Language } from '../language';
 import { Settings } from '../settings';
 import { isBoolean } from '../utils';
 import { Prp } from './prp';
-
-// Create rules, policies, policy sets. Reference them by the id.!!!!
-//  <AttributeDesignator> - value in request context
+import { Pip } from './pip';
 
 
-interface Error {
-  id: string | number;
-  message: string;
-}
-
-// !!! TODO: ADD INDETERMINATE(DP, D, P) !!!
+// TODO: Remove context where it's not necessary?
+// TODO: Allow to add priority policies/handlers, to run before any applicable policies (check IP or whatever).
+// TODO: ADD INDETERMINATE(DP, D, P) ?
+// TODO: Implement advice and obligation evaluation
 
 
 // If the result is “Indeterminate”, then the AttributeId,
@@ -52,11 +48,11 @@ export class Pdp extends Singleton {
   public static readonly isPolicy = (v: any): boolean => !!v.rules;
   public static readonly isPolicySet = (v: any): boolean => !!v.policies || !!v.policySets;
 
-  public static async EvaluateDecisionRequest(context: any): Promise<Decision> {
-    const tag: string = `${Pdp.tag}.EvaluateDecisionRequest()`;
-    const policies: Policy[] = await Prp.RetrieveContextPolicies(context);
+  public static async evaluateDecisionRequest(context: any): Promise<Decision> {
+    const tag: string = `${Pdp.tag}.evaluateDecisionRequest()`;
+    const policies: Policy[] = await Prp.retrieveContextPolicies(context);
     if (Settings.Pdp.debug) console.log(tag, 'policies:', policies);
-    const policySets: PolicySet[] = await Prp.RetrieveContextPolicySets(context);
+    const policySets: PolicySet[] = await Prp.retrieveContextPolicySets(context);
     if (Settings.Pdp.debug) console.log(tag, 'policySets:', policySets);
     const policySet: PolicySet = context.policySet = {
       id: null,
@@ -67,7 +63,7 @@ export class Pdp extends Singleton {
       policySets,
     };
 
-    const decision: Decision = context.body.decision = await Pdp.CombineDecision(context, policySet);
+    const decision: Decision = context.body.decision = await Pdp.combineDecision(context, policySet);
     if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
     return decision;
   }
@@ -76,16 +72,16 @@ export class Pdp extends Singleton {
   // obligations have to be combined as well!!!
 
   // Pass down combining algo?
-  public static async CombineDecision(context: any, policy: Policy | PolicySet, combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Promise<Decision> {
-    const tag: string = `${Pdp.tag}.CombineDecision()`;
+  public static async combineDecision(context: any, policy: Policy | PolicySet, combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Promise<Decision> {
+    const tag: string = `${Pdp.tag}.combineDecision()`;
     switch (combiningAlgorithm) {
-      case CombiningAlgorithm.DenyOverrides: return await Pdp.DenyOverrides(context, policy);
-      case CombiningAlgorithm.PermitOverrides: return await Pdp.PermitOverrides(context, policy);
-      case CombiningAlgorithm.DenyUnlessPermit: return await Pdp.DenyUnlessPermit(context, policy);
-      case CombiningAlgorithm.PermitUnlessDeny: return await Pdp.PermitUnlessDeny(context, policy);
-      case CombiningAlgorithm.PermitOverrides: return await Pdp.PermitOverrides(context, policy);
-      case CombiningAlgorithm.FirstApplicable: return await Pdp.FirstApplicable(context, policy);
-      case CombiningAlgorithm.OnlyOneApplicable: return await Pdp.OnlyOneApplicable(context, policy);
+      case CombiningAlgorithm.DenyOverrides: return await Pdp.denyOverrides(context, policy);
+      case CombiningAlgorithm.PermitOverrides: return await Pdp.permitOverrides(context, policy);
+      case CombiningAlgorithm.DenyUnlessPermit: return await Pdp.denyUnlessPermit(context, policy);
+      case CombiningAlgorithm.PermitUnlessDeny: return await Pdp.permitUnlessDeny(context, policy);
+      case CombiningAlgorithm.PermitOverrides: return await Pdp.permitOverrides(context, policy);
+      case CombiningAlgorithm.FirstApplicable: return await Pdp.firstApplicable(context, policy);
+      case CombiningAlgorithm.OnlyOneApplicable: return await Pdp.onlyOneApplicable(context, policy);
       default:
         if (Settings.Pdp.debug) console.log(tag, 'Invalid combiningAlgorithm:', combiningAlgorithm,
           '. Will use the Pdp.FallbackDecision:', Decision[Settings.Pdp.fallbackDecision]);
@@ -95,7 +91,7 @@ export class Pdp extends Singleton {
     }
   }
 
-  public static async DenyOverrides(context: any, policyOrSet: Policy | PolicySet, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
+  public static async denyOverrides(context: any, policyOrSet: Policy | PolicySet, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
     const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -104,20 +100,20 @@ export class Pdp extends Singleton {
     let permit: boolean = false;
 
     if (policySet) {
-      for (let policy of [...policySet.policies, ...policySet.policySets]) {
+      for (const policy of [...policySet.policies, ...policySet.policySets]) {
         if (deny) return Decision.Deny;
-        const decision: Decision = await Pdp.CombineDecision(context, policy);
+        const decision: Decision = await Pdp.combineDecision(context, policy);
         deny = decision === Decision.Deny;
-        indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
-        permit = permit ? true : decision === Decision.Permit;
+        if (!indeterminate) indeterminate = decision === Decision.Indeterminate;
+        if (!permit) permit = decision === Decision.Permit;
       }
     } else {
-      for (let rule of policy.rules) {
+      for (const rule of policy.rules) {
         if (deny) return Decision.Deny;
-        const decision: Decision = await Pdp.EvaluateRule(rule, context);
+        const decision: Decision = await Pdp.evaluateRule(context, rule);
         deny = decision === Decision.Deny;
-        indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
-        permit = permit ? true : decision === Decision.Permit;
+        if (!indeterminate) indeterminate = decision === Decision.Indeterminate;
+        if (!permit) permit = decision === Decision.Permit;
       }
     }
 
@@ -127,7 +123,7 @@ export class Pdp extends Singleton {
     return Decision.NotApplicable;
   }
 
-  public static async PermitOverrides(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
+  public static async permitOverrides(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
     const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -136,20 +132,20 @@ export class Pdp extends Singleton {
     let deny: boolean = false;
 
     if (policySet) {
-      for (let policy of [...policySet.policies, ...policySet.policySets]) {
+      for (const policy of [...policySet.policies, ...policySet.policySets]) {
         if (permit) return Decision.Permit;
-        const decision: Decision = await Pdp.CombineDecision(context, policy);
+        const decision: Decision = await Pdp.combineDecision(context, policy);
         permit = decision === Decision.Permit;
-        indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
-        deny = deny ? true : decision === Decision.Deny;
+        if (!indeterminate) indeterminate = decision === Decision.Indeterminate;
+        if (!permit) permit = decision === Decision.Permit;
       }
     } else {
-      for (let rule of policy.rules) {
+      for (const rule of policy.rules) {
         if (permit) return Decision.Permit;
-        const decision: Decision = await Pdp.EvaluateRule(rule, context);
+        const decision: Decision = await Pdp.evaluateRule(context, rule);
         permit = decision === Decision.Permit;
-        indeterminate = indeterminate ? true : decision === Decision.Indeterminate;
-        deny = deny ? true : decision === Decision.Deny;
+        if (!indeterminate) indeterminate = decision === Decision.Indeterminate;
+        if (!permit) permit = decision === Decision.Permit;
       }
     }
 
@@ -159,21 +155,21 @@ export class Pdp extends Singleton {
     return Decision.NotApplicable;
   }
 
-  public static async DenyUnlessPermit(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
+  public static async denyUnlessPermit(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
     const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
     let permit: boolean = false;
     if (policySet) {
-      for (let policy of [...policySet.policies, ...policySet.policySets]) {
+      for (const policy of [...policySet.policies, ...policySet.policySets]) {
         if (permit) return Decision.Permit;
-        const decision: Decision = await Pdp.CombineDecision(context, policy);
+        const decision: Decision = await Pdp.combineDecision(context, policy);
         permit = decision === Decision.Permit;
       }
     } else {
-      for (let rule of policy.rules) {
+      for (const rule of policy.rules) {
         if (permit) return Decision.Permit;
-        const decision: Decision = await Pdp.EvaluateRule(rule, context);
+        const decision: Decision = await Pdp.evaluateRule(context, rule);
         permit = decision === Decision.Permit;
       }
     }
@@ -182,21 +178,21 @@ export class Pdp extends Singleton {
     return Decision.Deny;
   }
 
-  public static async PermitUnlessDeny(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
+  public static async permitUnlessDeny(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
     const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
     let deny: boolean = false;
     if (policySet) {
-      for (let policy of [...policySet.policies, ...policySet.policySets]) {
+      for (const policy of [...policySet.policies, ...policySet.policySets]) {
         if (deny) return Decision.Deny;
-        const decision: Decision = await Pdp.CombineDecision(context, policy);
+        const decision: Decision = await Pdp.combineDecision(context, policy);
         deny = decision === Decision.Deny;
       }
     } else {
-      for (let rule of policy.rules) {
+      for (const rule of policy.rules) {
         if (deny) return Decision.Deny;
-        const decision: Decision = await Pdp.EvaluateRule(rule, context);
+        const decision: Decision = await Pdp.evaluateRule(context, rule);
         deny = decision === Decision.Deny;
       }
     }
@@ -205,22 +201,26 @@ export class Pdp extends Singleton {
     return Decision.Permit;
   }
 
-  public static async FirstApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
+  public static async firstApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
     const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
+    let decision: Decision = Decision.NotApplicable;
     if (policySet) {
-      return [...policySet.policies, ...policySet.policySets].reduce((decision, policy) =>
-        decision !== Decision.NotApplicable ? decision : Pdp.CombineDecision(context, policy)
-        , Decision.NotApplicable);
+      for (const policy of [...policySet.policies, ...policySet.policySets]) {
+        if (decision !== Decision.NotApplicable) return decision;
+        decision = await Pdp.combineDecision(context, policy);
+      }
     } else {
-      return policy.rules.reduce((decision, rule) =>
-        decision !== Decision.NotApplicable ? decision : Pdp.EvaluateRule(rule, context)
-        , Decision.NotApplicable);
+      for (const rule of policy.rules) {
+        if (decision !== Decision.NotApplicable) return decision;
+        decision = await Pdp.evaluateRule(context, rule);
+      }
     }
+    return Decision.NotApplicable;
   }
 
-  public static async OnlyOneApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
+  public static async onlyOneApplicable(policyOrSet: Policy | PolicySet, context: any, combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
     const policy: Policy = Pdp.isPolicySet(policyOrSet) ? undefined : policyOrSet;
     const policySet: PolicySet = policy === undefined ? policyOrSet : undefined;
 
@@ -228,18 +228,20 @@ export class Pdp extends Singleton {
     let result: Decision = Decision.NotApplicable;
 
     if (policySet) {
-      for (let policy of [...policySet.policies, ...policySet.policySets]) {
+      for (const policy of [...policySet.policies, ...policySet.policySets]) {
         if (indeterminate) return Decision.Indeterminate;
-        const decision: Decision = await Pdp.CombineDecision(context, policy);
+        const decision: Decision = await Pdp.combineDecision(context, policy);
         indeterminate = decision === Decision.Indeterminate ||
+          // The current decision AND a previous decision is something other than NotApplicable.
           decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
         result = decision;
       }
     } else {
-      for (let rule of policy.rules) {
+      for (const rule of policy.rules) {
         if (indeterminate) return Decision.Indeterminate;
-        const decision: Decision = await Pdp.EvaluateRule(rule, context);
+        const decision: Decision = await Pdp.evaluateRule(context, rule);
         indeterminate = decision === Decision.Indeterminate ||
+          // The current decision AND a previous decision is something other than NotApplicable.
           decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
         result = decision;
       }
@@ -249,63 +251,46 @@ export class Pdp extends Singleton {
     return result;
   }
 
-  // public static EvaluatePolicy(policy: Policy, context: any): Decision {
-  //   const tag: string = `${Pdp.tag}.EvaluatePolicy()`;
-  //   if (Settings.Pdp.debug) console.log(tag, 'policy:', policy);
-
-  //   const targetMatch: boolean | Decision = Pdp.EvaluateTarget(context, policy);
-  //   if (Settings.Pdp.debug) console.log(tag, 'targetMatch:', targetMatch);
-  //   if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
-  //   if (!targetMatch) return Decision.NotApplicable;
-
-  //   const decision: Decision = Pdp.CombineDecision(context, policy);
-
-  //   return decision;
-  // }
-
-  // 7.11. Rule evaluation
-  public static async EvaluateRule(context: any, rule: Rule): Promise<Effect | Decision> {
-    const tag: string = `${Pdp.tag}.${rule.id}.EvaluateRule()`;
+  public static async evaluateRule(context: any, rule: Rule): Promise<Effect | Decision> {
+    const tag: string = `${Pdp.tag}.${rule.id}.evaluateRule()`;
     // if (Settings.Pdp.debug) console.log(tag, 'rule:', rule);
 
-    const targetMatch: boolean | Decision = await Pdp.EvaluateTarget(context, rule);
+    const targetMatch: boolean | Decision = Pdp.evaluateTarget(context, rule);
     if (Settings.Pdp.debug) console.log(tag, 'targetMatch:', targetMatch);
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
-    // TODO: !!! EVALUATE AND ADD ADVICES AND OBLIGATIONS !!!
-    // TODO: Might be custom handler here
+    const attributeMap: any = Prp.retrieveRuleAttributeMap(rule);
+    if (Settings.Pdp.debug) console.log(tag, 'attributeMap:', attributeMap);
+    await Pip.retrieveAttributes(context, attributeMap);
 
-    const decision: boolean | Decision = await Pdp.EvaluateCondition(context, rule);
+    // TODO: !!! EVALUATE AND ADD ADVICES AND OBLIGATIONS !!!
+    // TODO: Check if condition isn 't custom handler.
+
+    const decision: boolean | Decision = Pdp.evaluateCondition(context, rule);
     if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
     return decision === true ? rule.effect : Decision.NotApplicable;
   }
 
   // 7.7 Target evaluation
-  public static async EvaluateTarget(context: any, element: Rule | Policy | PolicySet): Promise<boolean | Decision> {
-    const tag: string = `${Pdp.tag}.(Element - ${element.id}).EvaluateTarget()`;
+  public static evaluateTarget(context: any, element: Rule | Policy | PolicySet): boolean | Decision {
+    const tag: string = `${Pdp.tag}.(Element - ${element.id}).evaluateTarget()`;
     const anyOf: string[][] = element.target;
-    const result: boolean | Decision = await Pdp.EvaluateAnyOf(anyOf, context);
+    const result: boolean | Decision = Pdp.evaluateAnyOf(anyOf, context);
     return result;
   }
 
-  public static async EvaluateCondition(rule: Rule, context: any): Promise<boolean | Decision> {
-    const tag: string = `${Pdp.tag}.(Rule - ${rule.id}).EvaluateCondition()`;
-    if (Settings.Pdp.debug) console.log(tag, 'rule.condition:', rule.condition);
-    if (!rule.condition) {
-      if (Settings.Pdp.debug) console.log(tag, 'No condition - evaluates to true.');
-      return true;
-    }
-
+  public static evaluateCondition(rule: Rule, context: any): boolean | Decision {
+    const tag: string = `${Pdp.tag}.(Rule - ${rule.id}).evaluateCondition()`;
     const anyOf: string[][] = rule.condition;
-    const result: boolean | Decision = Pdp.EvaluateAnyOf(anyOf, context);
+    if (Settings.Pdp.debug) console.log(tag, 'rule.condition:', anyOf);
+    const result: boolean | Decision = Pdp.evaluateAnyOf(anyOf, context);
     return result;
   }
 
-  // gg reduce
-  public static async EvaluateAnyOf(anyOf: string[][], context: any): Promise<boolean | Decision> {
-    const tag: string = `${Pdp.tag}.EvaluateAnyOf()`;
-    const results: (boolean | Decision)[] = anyOf.map(allOf => Pdp.EvaluateAllOf(allOf, context));
+  public static evaluateAnyOf(anyOf: string[][], context: any): boolean | Decision {
+    const tag: string = `${Pdp.tag}.evaluateAnyOf()`;
+    const results: (boolean | Decision)[] = anyOf.map(allOf => Pdp.evaluateAllOf(allOf, context));
     if (Settings.Pdp.debug) console.log(tag, 'results:', results);
 
     const falseResults: (boolean | Decision)[] = results.filter(r => r === false);
@@ -321,21 +306,21 @@ export class Pdp extends Singleton {
     return result;
   }
 
-  public static async EvaluateAllOf(allOf: string[], context: any): Promise<boolean | Decision> {
+  public static evaluateAllOf(allOf: string[], context: any): boolean | Decision {
     return allOf.reduce((result, expression) => {
       // If one of the expressions failed for some reason, return Decision.Indeterminate.
       if (result === Decision.Indeterminate) return Decision.Indeterminate;
       // If one of the expressions evaluated to false, the target is not a match.
       if (result === false) return false;
       // Otherwise return the evaluated expression (true).
-      return Pdp.ExpressionToDecision(expression, context);
+      return Pdp.expressionToDecision(expression, context);
     }, true as boolean | Decision);
   }
 
   // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
-  public static ExpressionToDecision(str: string, context: any): boolean | Decision {
-    const tag: string = `${Pdp.tag}.ExpressionToDecision()`;
-    const expression: string = Language.StrToExpression(str, context);
+  public static expressionToDecision(str: string, context: any): boolean | Decision {
+    const tag: string = `${Pdp.tag}.expressionToDecision()`;
+    const expression: string = Language.strToExpression(str);
     if (Settings.Pdp.debug) console.log(tag, 'expression:', expression);
     if (!expression) {
       if (Settings.Pdp.debug) console.log(tag, 'String evaluated to an invalid expression.');

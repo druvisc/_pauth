@@ -60,7 +60,7 @@ export class Settings extends Singleton {
     //  a policy within a policy set is invalid? Should add a flag to blow up?)
     // b) the combining algorithm isn't valid
 
-
+    retrieveAttributesPer: 'policy', // 'rule', 'policy', 'policySet', // Is it necessary? Could just be set for best performance (w/e that is).
     fallbackDecision: Decision.Deny as Decision,
     targetOperation: Operation.Intersection as Operation, // !!!
   };
