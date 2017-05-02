@@ -1,4 +1,4 @@
-import { id } from '../interfaces';
+import { id, Context, } from '../interfaces';
 import { Singleton } from '../classes/singleton';
 import { Settings } from '../settings';
 import { createMap, includes, } from '../utils';
@@ -8,14 +8,14 @@ export class Pip extends Singleton {
   private static readonly tag: string = 'Pep';
 
   // Supposedly add the attribute to the context (do nothing).
-  public static async retrieveAttribute(context: any, element: string, attribute: string): Promise<any> {
+  public static async retrieveAttribute(context: Context, element: string, attribute: string): Promise<any> {
     const tag: string = `${Pip.tag}.retrieveAttribute()`;
     const value: any = context[element][attribute];
     if (Settings.Pip.debug) console.log(tag, '${element}.${attribute}:', value);
     return value;
   }
 
-  public static async retrieveAttributes(context: any, attributeMap: any): Promise<any> {
+  public static async retrieveAttributes(context: Context, attributeMap: any): Promise<any> {
     const tag: string = `${Pip.tag}.retrieveAttribute()`;
 
     // TODO: Write that existing elements can or can not be checked.

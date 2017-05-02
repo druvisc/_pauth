@@ -4,7 +4,7 @@ import { Request } from '../classes/request';
 import { Settings } from '../settings';
 import { Bootstrap } from '../bootstrap';
 import { Language } from '../language';
-import { id, url, Rule, Policy, PolicySet, Obligation, Advice, RuleHandler, } from '../interfaces';
+import { id, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice, } from '../interfaces';
 import { Effect, Effects, CombiningAlgorithm, CombiningAlgorithms, } from '../constants';
 import { flatten, unique, } from '../utils';
 
@@ -310,7 +310,7 @@ export class Prp extends Singleton {
     return Prp.ruleConditionAttributeMaps[rule.id];
   }
 
-  public static async retrieveContextPolicies(context: any): Promise<Policy[]> {
+  public static async retrieveContextPolicies(context: Context): Promise<Policy[]> {
     const tag: string = `${Prp.tag}.retrieveContextPolicies()`;
     if (!Prp.bootstrapped) throw Error(`Prp has not been bootstrapped.`);
 
@@ -332,7 +332,7 @@ export class Prp extends Singleton {
     return policies;
   }
 
-  public static async retrieveContextPolicySets(context: any): Promise<PolicySet[]> {
+  public static async retrieveContextPolicySets(context: Context): Promise<PolicySet[]> {
     const tag: string = `${Prp.tag}.retrieveContextPolicySets()`;
     if (!Prp.bootstrapped) throw Error(`Prp has not been bootstrapped.`);
 
@@ -354,7 +354,7 @@ export class Prp extends Singleton {
     return policySets;
   }
 
-  private static targetMapThroughCacheToElements(context: any, targetMap: any, elementMap: any): (Policy | PolicySet)[] {
+  private static targetMapThroughCacheToElements(context: Context, targetMap: any, elementMap: any): (Policy | PolicySet)[] {
     const tag: string = `${Prp.tag}.targetMapThroughCacheToElements()`;
     const queries: string[] = Language.retrieveContextQueries(context);
     if (Settings.Prp.debug) console.log(tag, 'queries:', queries);
@@ -365,7 +365,7 @@ export class Prp extends Singleton {
     return elements;
   }
 
-  private static async targetMapThroughPromiseToElements(context: any, targetMap: any, retrieve: Function): Promise<(Policy | PolicySet)[]> {
+  private static async targetMapThroughPromiseToElements(context: Context, targetMap: any, retrieve: Function): Promise<(Policy | PolicySet)[]> {
     const tag: string = `${Prp.tag}.TargetMapThroughDatabaseToElements()`;
     const queries: string[] = Language.retrieveContextQueries(context);
     if (Settings.Prp.debug) console.log(tag, 'queries:', queries);

@@ -7,17 +7,20 @@ export type id = string | number;
 export type url = string;
 export type version = string | number;
 
-// TODO: Perhaps support policy list in the future?
-// Not returning a combined decision might be a bit trickier.
-// Both probably primarily used for debugging.
 export interface Context {
-  // returnPolicyList?: boolean; // False
-  // combinedDecision?: boolean; // True
   action: Action;
   subject: Subject;
   resource: Resource;
   environment?: Environment;
   additional?: any;
+  returnPolicyList: boolean; // False
+  policyList: {
+    id: id,
+    target: string[][],
+    decision: Decision
+  }[];
+  combinedDecision?: boolean; // True
+  decisions?: Decision[];
 }
 
 
@@ -48,11 +51,7 @@ export interface Rule {
   condition?: string[][];
   handler?: RuleHandler;
   obligationIds?: id[];
-  obligationUrls?: url[];
-  obligations?: Obligation[];
   adviceIds?: id[];
-  adviceUrls?: url[];
-  advice?: Advice[];
 }
 
 export interface Policy {
@@ -71,11 +70,7 @@ export interface Policy {
   ruleUrls?: url[];
   rules?: Rule[];
   obligationIds?: id[];
-  obligationUrls?: url[];
-  obligations?: Obligation[];
   adviceIds?: id[];
-  adviceUrls?: url[];
-  advice?: Advice[];
 }
 
 export interface PolicySet {
@@ -94,11 +89,7 @@ export interface PolicySet {
   policyUrls?: url[];
   policies?: Policy[];
   obligationIds?: id[];
-  obligationUrls?: url[];
-  obligations?: Obligation[];
   adviceIds?: id[];
-  adviceUrls?: url[];
-  advice?: Advice[];
   // combinerParameters: any;
   // policyCombinerParameters: any;
   // policySetCombinerParameters: any;
@@ -109,7 +100,8 @@ export interface Obligation {
   version?: version;
   description?: string;
   effect?: Effect;
-  attributes?: string[];
+  handler: Function | url;
+  attributeMap?: any;
 }
 
 export interface Advice {
@@ -117,7 +109,8 @@ export interface Advice {
   version?: version;
   description?: string;
   effect?: Effect;
-  attributes?: string[];
+  handler: Function | url;
+  attributeMap?: any;
 }
 
 export interface RuleHandler {

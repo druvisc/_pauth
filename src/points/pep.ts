@@ -1,42 +1,57 @@
 import { Singleton } from '../classes/singleton';
 import { Decision, Effect, PepBias, } from '../constants';
-import { Obligation, Advice, id } from '../interfaces';
+import { Context, Obligation, Advice, id } from '../interfaces';
 import { Settings } from '../settings';
 import { isArray } from '../utils';
 import { Pdp } from './pdp';
+import { Bootstrap } from '../bootstrap';
 
 // TODO: Implement caching in the future.
 export class Pep extends Singleton {
   private static readonly tag: string = 'Pep';
 
-  public static async EvaluateAuthorizationRequest(context, next): Promise<void> {
+  public static async EvaluateAuthorizationRequest(ctx: any, next: Function): Promise<void> {
     const tag: string = `${Pep.tag}.EvaluateAuthorizationRequest()`;
-    if (Settings.Pep.isGateway) {
-      context = {
-        action: {
-          method: context.request.method,
-        },
-        // TODO: Retrieve resource id?
-        resource: {
-          id: context.request.headers.host,
-        },
-        subject: {
-          id: await Pep.retrieveSubjectId(context),
-        }
-      };
-    }
+    let _context: any = !Settings.Pep.isGateway ? ctx : {
+      action: {
+        method: ctx.request.method,
+      },
+      // TODO: Retrieve resource id?
+      resource: {
+        id: ctx.request.headers.host,
+      },
+      // TODO: Retrieve resource id?
+      subject: {
+        // PIP or PRP
+        id: await Pep.retrieveSubjectId(ctx),
+      }
+    };
 
-    // TODO: Validate the context. Action, resource and subject should be present,
-    // and if theyre present, ids definitely must be present.
+    Object.assign(_context, {
+      returnPolicyList: _context.hasOwnProperty('returnPolicyList') ?
+        _context.returnPolicyList : Settings.Pep.returnPolicyList,
+      combinedDecision: _context.hasOwnProperty('combinedDecision') ?
+        _context.combinedDecision : Settings.Pep.combinedDecision,
+    });
+
+    const contextErrors: Error[] = [];
+    const context: Context = Bootstrap.getContext(_context, contextErrors);
+    // TODO: Do that koa assert with error code?
+    if (contextErrors.length) throw contextErrors;
+
     await Pdp.evaluateDecisionRequest(context);
     await Pep.evaluateDecisionResponse(context);
     await Pep.evaluateAuthorizationResponse(context);
+
+    // TODO: What now?
+    // If decision ok and gateway, contact backend. In this case dont return policy and wait wut shudnt those 2 be in PDP?
+    // If not ok add juz decision.
     await next;
   }
 
   // TODO: Write how to implement this.
   // TODO: Same for resource?
-  private static async retrieveSubjectId(context: any): Promise<id> {
+  private static async retrieveSubjectId(context: Context): Promise<id> {
     const tag: string = `${Pep.tag}.retrieveSubjectId()`;
     // Promise with id?
     // TODO: Add registerX functions, set methods in a hashmap, all must be set for the program to run (can be checked in bootstrap process? maybe a different one than prp)
@@ -45,7 +60,7 @@ export class Pep extends Singleton {
     return id;
   }
 
-  public static async evaluateDecisionResponse(context: any): Promise<Decision> {
+  public static async evaluateDecisionResponse(context: Context): Promise<Decision> {
     const tag: string = `${Pep.tag}.evaluateDecisionResponse()`;
 
     // TODO: Return fulfilled/unfulfilled obligations and advice
@@ -107,7 +122,7 @@ export class Pep extends Singleton {
 
   }
 
-  public static async evaluateAuthorizationResponse(context: any): Promise<void> {
+  public static async evaluateAuthorizationResponse(context: Context): Promise<void> {
     context.response.body = context.decision;
   }
 

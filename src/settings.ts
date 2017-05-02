@@ -48,6 +48,8 @@ export class Settings extends Singleton {
     isGateway: true,
     bias: PepBias.Deny,
     fallbackEffect: Effect.Deny as Effect,
+    returnPolicyList: false,
+    combinedDecision: true,
   };
 
 

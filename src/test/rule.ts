@@ -3,7 +3,7 @@ import * as jp from 'jsonpath';
 import { expect } from 'chai';
 import { Pdp } from '../points/pdp';
 import { Effect, Decision, HttpMethod, } from '../constants';
-import { Rule } from '../interfaces';
+import { Context, Rule } from '../interfaces';
 
 describe('Rule', () => {
   it('subject should be tested', () => {
@@ -79,7 +79,7 @@ describe('Rule', () => {
 
     console.log(JSON.stringify(ofAgeRuleAuthenticated));
 
-    const ruleHandlerExample: RuleHandler = async (context: any, rule: Rule, Pip: Pip): Promise<boolean | Decision> => {
+    const ruleHandlerExample: RuleHandler = async (context: Context, rule: Rule, Pip: Pip): Promise<boolean | Decision> => {
       const subject: Subject = context.subject;
       const resource: Resource = context.resource;
       const attributeMap = {

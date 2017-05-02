@@ -2,7 +2,7 @@ import * as jp from 'jsonpath';
 import { substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique, } from './utils';
 import { Singleton } from './classes/singleton';
 import { Settings } from './settings';
-import { Rule } from './interfaces';
+import { Context, Rule } from './interfaces';
 
 const SubscriptStart: string = '[';
 const SubscriptEnd: string = ']';
@@ -80,7 +80,7 @@ export class Language extends Singleton {
   }
 
   // Context attributes, queries just because the JSONPath's $ is prepended.
-  public static retrieveContextQueries(context: any): string[] {
+  public static retrieveContextQueries(context: Context): string[] {
     const tag: string = `${Language.tag}.retrieveContextQueries()`;
     const accessedElements: string[] = Object.keys(context);
     const queries: string[] = flatten(accessedElements.map(accessedElement => {
