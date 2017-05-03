@@ -3,6 +3,9 @@ import { url, handler, Context, RuleHandler, Obligation, Advice, } from './inter
 import { Request } from './classes/request';
 import { Pip } from './points/pip';
 
+export const log = console.log; // console.log(JSON.stringify(myObject, null, 4));
+
+
 /** String operations */
 export const ignoreCaseEqual = (str1: string, str2: string): boolean =>
   str1.toUpperCase() === str2.toUpperCase();
@@ -51,12 +54,12 @@ export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
 export async function evaluateHandler(context: Context, element: RuleHandler | Obligation | Advice, type: string, pip: Pip = Pip): Promise<any> {
   const tag: string = `evaluateHandler()`;
   const debug: boolean = false;
-  if (debug) console.log(tag, 'element:', element);
+  if (debug) log(tag, 'element:', element);
 
   const handlerFunction: Function = isFunction(element.handler) ? element.handler as Function : null;
-  if (debug) console.log(tag, 'handlerFunction:', handlerFunction);
+  if (debug) log(tag, 'handlerFunction:', handlerFunction);
   const handlerUrl: url = handlerFunction === null ? element.handler as url : null;
-  if (debug) console.log(tag, 'handlerUrl:', handlerUrl);
+  if (debug) log(tag, 'handlerUrl:', handlerUrl);
 
   if (handlerFunction) return await handlerFunction(context, element, Pip);
   else if (handlerUrl) {

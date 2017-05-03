@@ -1,12 +1,19 @@
 import { expect } from 'chai';
-import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, XACMLElement, } from '../constants';
-import { id, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice, } from '../interfaces';
+import {
+  Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, XACMLElement,
+} from '../constants';
+import {
+  id, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice,
+} from '../interfaces';
 import { Singleton } from '../classes/singleton';
 import { Language } from '../classes/language';
 import { Request } from '../classes/request';
 import { Settings } from '../settings';
 
-import { isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy, isPolicySet, } from '../utils';
+import {
+  log, isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy,
+  isPolicySet,
+} from '../utils';
 import { Prp } from './prp';
 import { Pip } from './pip';
 
@@ -82,9 +89,9 @@ export class Pdp extends Singleton {
       policies,
       policySets,
     };
-    if (Settings.Pdp.debug) console.log(tag, 'policySet:', policySet);
+    if (Settings.Pdp.debug) log(tag, 'policySet:', policySet);
     const decision: Decision = context.decision = await Pdp.combineDecision(context, policySet);
-    if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
+    if (Settings.Pdp.debug) log(tag, 'decision:', decision);
     return decision;
   }
 
@@ -110,7 +117,7 @@ export class Pdp extends Singleton {
     let decision: Decision;
     if (!includes(CombiningAlgorithms, combiningAlgorithm)) {
       decision = Settings.Pdp.bias;
-      if (Settings.Pdp.debug) console.log(tag, `Invalid combiningAlgorithm ${combiningAlgorithm}\
+      if (Settings.Pdp.debug) log(tag, `Invalid combiningAlgorithm ${combiningAlgorithm}\
       Will using the Pdp.bias (${Decision[decision]}`);
     } else {
       if (combiningAlgorithm === CombiningAlgorithm.DenyOverrides) decision = await Pdp.denyOverrides(context, policy);
@@ -302,15 +309,15 @@ export class Pdp extends Singleton {
 
   public static async evaluateRule(context: Context, rule: Rule): Promise<Effect | Decision> {
     const tag: string = `${Pdp.tag}.${rule.id}.evaluateRule()`;
-    if (Settings.Pdp.debug) console.log(tag, 'rule:', rule);
+    if (Settings.Pdp.debug) log(tag, 'rule:', rule);
     const targetMatch: boolean | Decision = Pdp.evaluateTarget(context, rule);
-    if (Settings.Pdp.debug) console.log(tag, 'targetMatch:', targetMatch);
+    if (Settings.Pdp.debug) log(tag, 'targetMatch:', targetMatch);
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
     const ruleHandler: RuleHandler = Prp.getRuleHandlerById(rule.handlerId);
     const attributeMap: any = ruleHandler && ruleHandler.attributeMap || Prp.retrieveRuleAttributeMap(rule);
-    if (Settings.Pdp.debug) console.log(tag, 'attributeMap:', attributeMap);
+    if (Settings.Pdp.debug) log(tag, 'attributeMap:', attributeMap);
     await Pip.retrieveAttributes(context, attributeMap);
 
     let decision: boolean | Decision;
@@ -325,9 +332,9 @@ export class Pdp extends Singleton {
       decision = true;
     }
 
-    if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
+    if (Settings.Pdp.debug) log(tag, 'decision:', decision);
     const effect: Effect | Decision = decision === true ? rule.effect : Decision.NotApplicable;
-    if (Settings.Pdp.debug) console.log(tag, 'effect:', effect);
+    if (Settings.Pdp.debug) log(tag, 'effect:', effect);
 
     // context.obligations = [...context.obligations, {
     //   id: rule.id,
@@ -351,14 +358,14 @@ export class Pdp extends Singleton {
   //     const obligation: Obligation = Prp.retrieveObligationById(obligationId);
   //     return !obligation.effect || obligation.effect === effect;
   //   });
-  //   if (Settings.Pdp.debug) console.log(tag, `${type} #${element.id} obligations to apply:`, obligationIds);
+  //   if (Settings.Pdp.debug) log(tag, `${type} #${element.id} obligations to apply:`, obligationIds);
   //   context.obligationIds = [...context.obligationIds, ...obligationIds];
 
   //   const adviceIds: id[] = element.obligationIds.filter(adviceId => {
   //     const advice: Obligation = Prp.retrieveAdviceById(adviceId);
   //     return !advice.effect || advice.effect === effect;
   //   });
-  //   if (Settings.Pdp.debug) console.log(tag, `${type} #${element.id} advice to apply:`, adviceIds);
+  //   if (Settings.Pdp.debug) log(tag, `${type} #${element.id} advice to apply:`, adviceIds);
   //   context.adviceIds = [...context.adviceIds, ...adviceIds];
   // }
 
@@ -373,7 +380,7 @@ export class Pdp extends Singleton {
   public static evaluateCondition(context: Context, rule: Rule, ): boolean | Decision {
     const tag: string = `${Pdp.tag}.(Rule - ${rule.id}).evaluateCondition()`;
     const anyOf: string[][] = rule.condition;
-    if (Settings.Pdp.debug) console.log(tag, 'rule.condition:', anyOf);
+    if (Settings.Pdp.debug) log(tag, 'rule.condition:', anyOf);
     const result: boolean | Decision = Pdp.evaluateAnyOf(context, anyOf);
     return result;
   }
@@ -381,17 +388,17 @@ export class Pdp extends Singleton {
   public static evaluateAnyOf(context: Context, anyOf: string[][]): boolean | Decision {
     const tag: string = `${Pdp.tag}.evaluateAnyOf()`;
     const results: (boolean | Decision)[] = anyOf.map(allOf => Pdp.evaluateAllOf(context, allOf));
-    if (Settings.Pdp.debug) console.log(tag, 'results:', results);
+    if (Settings.Pdp.debug) log(tag, 'results:', results);
 
     const falseResults: (boolean | Decision)[] = results.filter(r => r === false);
-    if (Settings.Pdp.debug) console.log(tag, 'falseResults:', falseResults);
+    if (Settings.Pdp.debug) log(tag, 'falseResults:', falseResults);
     if (results.length === falseResults.length) return false;
 
     const result: boolean | Decision = results.reduce((result, v) => {
       if (result === true || v === true) return true;
       return v;
     }, Decision.Indeterminate);
-    if (Settings.Pdp.debug) console.log(tag, 'result:', result);
+    if (Settings.Pdp.debug) log(tag, 'result:', result);
 
     return result;
   }
@@ -411,9 +418,9 @@ export class Pdp extends Singleton {
   public static expressionToDecision(context: Context, str: string): boolean | Decision {
     const tag: string = `${Pdp.tag}.expressionToDecision()`;
     const expression: string = Language.strToExpression(context, str);
-    if (Settings.Pdp.debug) console.log(tag, 'expression:', expression);
+    if (Settings.Pdp.debug) log(tag, 'expression:', expression);
     if (!expression) {
-      if (Settings.Pdp.debug) console.log(tag, 'String evaluated to an invalid expression.');
+      if (Settings.Pdp.debug) log(tag, 'String evaluated to an invalid expression.');
       return Decision.Indeterminate;
     }
 
@@ -422,15 +429,15 @@ export class Pdp extends Singleton {
       result = eval(expression);
       if (!isBoolean(result)) {
         // Only allow the expression to evaluate to true or false.
-        if (Settings.Pdp.debug) console.log(tag, 'Truncated expression result from:', result);
+        if (Settings.Pdp.debug) log(tag, 'Truncated expression result from:', result);
         result = !!result;
-        if (Settings.Pdp.debug) console.log(tag, 'To boolean value:', result);
+        if (Settings.Pdp.debug) log(tag, 'To boolean value:', result);
       }
     } catch (err) {
-      if (Settings.Pdp.debug) console.log(tag, 'Couldn\'t execute expression.');
+      if (Settings.Pdp.debug) log(tag, 'Couldn\'t execute expression.');
       return Decision.Indeterminate;
     }
-    if (Settings.Pdp.debug) console.log(tag, 'result:', result);
+    if (Settings.Pdp.debug) log(tag, 'result:', result);
     return result;
   }
 }

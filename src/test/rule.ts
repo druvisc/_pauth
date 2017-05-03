@@ -4,6 +4,7 @@ import { expect } from 'chai';
 import { Pdp } from '../points/pdp';
 import { Effect, Decision, HttpMethod, } from '../constants';
 import { Context, Rule } from '../interfaces';
+import { log } from '../utils';
 
 describe('Rule', () => {
   it('subject should be tested', () => {
@@ -77,7 +78,7 @@ describe('Rule', () => {
     decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
     expect(decision).to.be.equal(Effect.Permit);
 
-    console.log(JSON.stringify(ofAgeRuleAuthenticated));
+    log(JSON.stringify(ofAgeRuleAuthenticated));
 
     const ruleHandlerExample: RuleHandler = async (context: Context, rule: Rule, Pip: Pip): Promise<boolean | Decision> => {
       const subject: Subject = context.subject;

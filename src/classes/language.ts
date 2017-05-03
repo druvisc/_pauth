@@ -1,5 +1,7 @@
 import * as jp from 'jsonpath';
-import { substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique, } from '../utils';
+import {
+  log, substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique,
+} from '../utils';
 import { Singleton } from './singleton';
 import { Settings } from '../settings';
 import { Context, Rule } from '../interfaces';
@@ -18,26 +20,26 @@ export class Language extends Singleton {
   // TODO: Validate query?
   public static strToExpression(context: Context, str: string): string {
     const tag: string = `${Language.tag}.strToExpression()`;
-    if (Settings.Language.debug) console.log(tag, 'str:', str);
+    if (Settings.Language.debug) log(tag, 'str:', str);
     const queries: string[] = Language.extractQueries(str);
     let queryRes: string;
     queries.forEach(query => {
-      if (Settings.Language.debug) console.log(tag, 'query:', query);
+      if (Settings.Language.debug) log(tag, 'query:', query);
       try {
         queryRes = jp.query(context, query)[0];
       } catch (err) {
-        if (Settings.Language.debug) console.log(tag, 'Invalid query:', query);
+        if (Settings.Language.debug) log(tag, 'Invalid query:', query);
         return null;
       }
       // If the query result is a string, it must be represented as a string in the expression.
       // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
       queryRes = !isString(queryRes) && isPrimitive(queryRes) ? queryRes : `'${queryRes}'`;
-      if (Settings.Language.debug) console.log(tag, 'queryRes:', queryRes);
+      if (Settings.Language.debug) log(tag, 'queryRes:', queryRes);
       str = str.replace(query, queryRes);
       // TODO: Validate query?
       query = Language.strToQuery(str);
     });
-    if (Settings.Language.debug) console.log(tag, 'expression:', str);
+    if (Settings.Language.debug) log(tag, 'expression:', str);
     return str;
   }
 
@@ -46,28 +48,28 @@ export class Language extends Singleton {
     const queries: string[] = [];
     let query: string = Language.strToQuery(str);
     while (query) {
-      if (Settings.Language.debug) console.log(tag, 'query:', query);
+      if (Settings.Language.debug) log(tag, 'query:', query);
       queries.push(query);
       str = str.replace(query, '');
       query = Language.strToQuery(str);
     }
-    if (Settings.Language.debug) console.log(tag, 'queries:', queries);
+    if (Settings.Language.debug) log(tag, 'queries:', queries);
     return queries;
   }
 
   public static strToQuery(str: string): string {
     const tag: string = `${Language.tag}.strToQuery()`;
     const start: number = str.indexOf('$');
-    if (Settings.Language.debug) console.log(tag, 'start:', start);
+    if (Settings.Language.debug) log(tag, 'start:', start);
     if (start === -1) return null;
 
     let end: number = str.indexOf(' ', start);
     end = end !== -1 ? end : str.length;
-    if (Settings.Language.debug) console.log(tag, 'end:', end);
+    if (Settings.Language.debug) log(tag, 'end:', end);
     const substr: string = str.substring(start, end);
-    if (Settings.Language.debug) console.log(tag, 'substr:', substr);
+    if (Settings.Language.debug) log(tag, 'substr:', substr);
     const subscriptStartCount: number = substrCount(str, SubscriptStart);
-    if (Settings.Language.debug) console.log(tag, 'subscriptStartCount:', subscriptStartCount);
+    if (Settings.Language.debug) log(tag, 'subscriptStartCount:', subscriptStartCount);
 
     let query: string = substr;
 
@@ -101,16 +103,16 @@ export class Language extends Singleton {
 
   public static queriesToAttributeMap(queries: string[]): any {
     const tag: string = `${Language.tag}.queriesToAttributeMap()`;
-    if (Settings.Pip.debug) console.log(tag, 'queries:', queries);
-    const attributeMap = queries.reduce((map, query) => {
+    if (Settings.Pip.debug) log(tag, 'queries:', queries);
+    const attributeMap: any = queries.reduce((map, query) => {
       query = query.slice(1);
       const split: string[] = query.split('.');
-      const element: string = split[0];
-      const attribute: string = split[1];
+      const element: string = split[1];
+      const attribute: string = split[2];
       map[element] = map[element] ? [...map[element], attribute] : [attribute];
       return map;
     }, {});
-    if (Settings.Pip.debug) console.log(tag, 'attributeMap:', attributeMap);
+    if (Settings.Pip.debug) log(tag, 'attributeMap:', attributeMap);
   }
 }
 

@@ -1,7 +1,7 @@
 import { id, Context, } from '../interfaces';
 import { Singleton } from '../classes/singleton';
 import { Settings } from '../settings';
-import { createMap, includes, } from '../utils';
+import { log, createMap, includes, } from '../utils';
 
 // TODO: Perhaps in the future introduce interfaces (HTTP, etc).
 export class Pip extends Singleton {
@@ -11,7 +11,7 @@ export class Pip extends Singleton {
   public static async retrieveAttribute(context: Context, element: string, attribute: string): Promise<any> {
     const tag: string = `${Pip.tag}.retrieveAttribute()`;
     const value: any = context[element][attribute];
-    if (Settings.Pip.debug) console.log(tag, '${element}.${attribute}:', value);
+    if (Settings.Pip.debug) log(tag, '${element}.${attribute}:', value);
     return value;
   }
 

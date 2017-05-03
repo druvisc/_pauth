@@ -113,8 +113,8 @@ export interface Obligation {
   version?: version;
   description?: string;
   effect?: Effect;
-  handler: handler;
   attributeMap?: any;
+  handler: handler;
 }
 
 export interface Advice {
@@ -122,16 +122,16 @@ export interface Advice {
   version?: version;
   description?: string;
   effect?: Effect;
-  handler: handler;
   attributeMap?: any;
+  handler: handler;
 }
 
 export interface RuleHandler {
   id: id;
   version?: version;
   description?: string;
-  handler: handler;
   attributeMap?: any;
+  handler: handler;
 }
 
 

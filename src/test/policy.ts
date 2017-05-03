@@ -9,7 +9,7 @@
 //   // let movieDataServiceStub: Sinon.SinonSpy;
 //   beforeEach(() => {
 //     const tag: string = `${Tag}.beforeEach()`;
-//     console.log(tag);
+//     log(tag);
 //     // sinon.stub(movieDataService, 'loadMovies').returns([new Movie('The Matrix', 1998, 5)]);
 //     // movieDataServiceStub = sinon.spy(movieDataService, 'save');
 //     // viewModel = new MoviesViewModel();
@@ -17,13 +17,13 @@
 
 //   afterEach(() => {
 //     const tag: string = `${Tag}.afterEach()`;
-//     console.log(tag);
+//     log(tag);
 //     // sinon.restore(movieDataService.loadMovies);
 //   });
 
 //   it('should load movies', () => {
 //     const tag: string = `${Tag}.should load movies`;
-//     console.log(tag);
+//     log(tag);
 
 //     const information = {
 //       username: 'user00001',

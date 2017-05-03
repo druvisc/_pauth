@@ -4,7 +4,7 @@ import { Request } from '../classes/request';
 import { Decision, Effect, Bias, XACMLElement, } from '../constants';
 import { Context, Policy, PolicySet, Obligation, Advice, id, HandlerResult, } from '../interfaces';
 import { Settings } from '../settings';
-import { isArray, evaluateHandler, unique, isPolicy, isPolicySet, flatten, } from '../utils';
+import { log, isArray, evaluateHandler, unique, isPolicy, isPolicySet, flatten, } from '../utils';
 import { Pdp } from './pdp';
 import { Prp } from './prp';
 import { Pip } from './pip';
@@ -48,17 +48,17 @@ export class Pep extends Singleton {
 
   private static async retrieveSubjectId(ctx: any): Promise<id> {
     const tag: string = `${Pep.tag}.retrieveSubjectId()`;
-    if (Settings.Pep.debug) console.log(tag, 'ctx:', ctx);
+    if (Settings.Pep.debug) log(tag, 'ctx:', ctx);
     const id: id = await Pep._retrieveSubjectId(ctx);
-    if (Settings.Pep.debug) console.log(tag, 'id:', id);
+    if (Settings.Pep.debug) log(tag, 'id:', id);
     return id;
   }
 
   private static async retrieveResourceId(ctx: any): Promise<id> {
     const tag: string = `${Pep.tag}.retrieveResourceId()`;
-    if (Settings.Pep.debug) console.log(tag, 'ctx:', ctx);
+    if (Settings.Pep.debug) log(tag, 'ctx:', ctx);
     const id: id = await Pep._retrieveSubjectId(ctx);
-    if (Settings.Pep.debug) console.log(tag, 'id:', id);
+    if (Settings.Pep.debug) log(tag, 'id:', id);
     return id;
   }
 
@@ -92,7 +92,7 @@ export class Pep extends Singleton {
 
   public static async evaluateObligations(context: Context): Promise<HandlerResult[]> {
     const tag: string = `${Pep.tag}.evaluateObligations()`;
-    const obligationIds: id[] = Pep.gatherIds(context.policyList.map(container => container.policy), 'obligationIds');
+    const obligationIds: id[] = unique(Pep.gatherIds(context.policyList.map(container => container.policy), 'obligationIds'));
     const obligationResults: HandlerResult[] = [];
     for (const id of obligationIds) {
       const obligation: Obligation = Prp.getObligationById(id);
@@ -116,7 +116,7 @@ export class Pep extends Singleton {
 
   public static async evaluateAdvice(context: Context): Promise<HandlerResult[]> {
     const tag: string = `${Pep.tag}.evaluateAdvice()`;
-    const adviceIds: id[] = Pep.gatherIds(context.policyList.map(container => container.policy), 'adviceIds');
+    const adviceIds: id[] = unique(Pep.gatherIds(context.policyList.map(container => container.policy), 'adviceIds'));
     const adviceResults: HandlerResult[] = [];
     for (const id of adviceIds) {
       const advice: Advice = Prp.getAdviceById(id);
@@ -138,7 +138,7 @@ export class Pep extends Singleton {
   }
 
   public static gatherIds = (policyList: (Policy | PolicySet)[], key: string): id[] =>
-    unique(flatten(policyList.map(_policy => {
+    flatten(policyList.map(_policy => {
       const policySet: boolean = isPolicySet(_policy);
       if (policySet) {
         const policySet: PolicySet = _policy;
@@ -153,12 +153,12 @@ export class Pep extends Singleton {
         ...policy[key],
         ...policy.rules.map(rule => rule[key])
       ];
-    })))
+    }))
 
   public static async evaluateAuthorizationResponse(ctx: any, context: Context): Promise<void> {
     const tag: string = `${Pep.tag}.evaluateAuthorizationResponse()`;
     const headers: any = {};
-    if (Settings.Pep.debug) console.log(tag, 'headers:', headers);
+    if (Settings.Pep.debug) log(tag, 'headers:', headers);
 
     const body: any = {
       decision: context.decision,
@@ -169,7 +169,7 @@ export class Pep extends Singleton {
     if (context.returnAdviceResults) body.adviceResults = context.adviceResults;
     if (context.returnObligationResults) body.obligationResults = context.obligationResults;
 
-    if (Settings.Pep.debug) console.log(tag, 'body:', body);
+    if (Settings.Pep.debug) log(tag, 'body:', body);
 
     if (Settings.Pep.isGateway) {
       if (body.decision === Decision.Permit) {
