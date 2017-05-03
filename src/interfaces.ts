@@ -1,26 +1,39 @@
 import {
-  Effect, AuthorizationDecision, Decision, CombiningAlgorithm, PepBias, StatusCode,
-  HttpMethod, Environment,
+  Effect, AuthorizationDecision, Decision, CombiningAlgorithm, StatusCode,
+  HttpMethod, Environment, XACMLElement,
 } from './constants';
 
 export type id = string | number;
 export type url = string;
 export type version = string | number;
+export type handler = Function | url;
+
+
+export interface HandlerResult {
+  id: id;
+  res?: string;
+  err?: string;
+}
+
 
 export interface Context {
+  returnReason: boolean;
+  returnPolicyList: boolean;
+  returnAdviceResults: boolean;
+  returnObligationResults: boolean;
+  reason: string;
+  decision: Decision;
   action: Action;
   subject: Subject;
   resource: Resource;
   environment?: Environment;
   additional?: any;
-  returnPolicyList: boolean; // False
   policyList: {
-    id: id,
-    target: string[][],
+    policy: Policy | PolicySet
     decision: Decision
   }[];
-  combinedDecision?: boolean; // True
-  decisions?: Decision[];
+  adviceResults: HandlerResult[];
+  obligationResults: HandlerResult[];
 }
 
 
@@ -49,7 +62,7 @@ export interface Rule {
   description?: string;
   target: string[][];
   condition?: string[][];
-  handler?: RuleHandler;
+  handlerId?: id;
   obligationIds?: id[];
   adviceIds?: id[];
 }
@@ -100,7 +113,7 @@ export interface Obligation {
   version?: version;
   description?: string;
   effect?: Effect;
-  handler: Function | url;
+  handler: handler;
   attributeMap?: any;
 }
 
@@ -109,7 +122,7 @@ export interface Advice {
   version?: version;
   description?: string;
   effect?: Effect;
-  handler: Function | url;
+  handler: handler;
   attributeMap?: any;
 }
 
@@ -117,7 +130,7 @@ export interface RuleHandler {
   id: id;
   version?: version;
   description?: string;
-  handler: Function | url;
+  handler: handler;
   attributeMap?: any;
 }
 

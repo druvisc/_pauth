@@ -1,4 +1,7 @@
 const validUrl = require('valid-url');
+import { url, handler, Context, RuleHandler, Obligation, Advice, } from './interfaces';
+import { Request } from './classes/request';
+import { Pip } from './points/pip';
 
 /** String operations */
 // export const StrEnum = <T extends string>(keys: Array<T>): {[K in T]: K} =>
@@ -52,6 +55,33 @@ export const isObject = (v): boolean => typeof v === 'object' && !isArray(v) && 
 export const isPrimitive = (v): boolean => !isObject(v) && !isArray(v) && !isFunction(v);
 /** Type checking */
 
+/* XACMLElement operations */
+export const isRule = (v: any): boolean => v.hasOwnProperty('effect');
+export const isPolicy = (v: any): boolean => v.hasOwnProperty('rules');
+export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
+
+/** Handler operations */
+export async function evaluateHandler(context: Context, element: RuleHandler | Obligation | Advice, type: string, pip: Pip = Pip): Promise<any> {
+  const tag: string = `evaluateHandler()`;
+  const debug: boolean = false;
+  if (debug) console.log(tag, 'element:', element);
+
+  const handlerFunction: Function = isFunction(element.handler) ? element.handler as Function : null;
+  if (debug) console.log(tag, 'handlerFunction:', handlerFunction);
+  const handlerUrl: url = handlerFunction === null ? element.handler as url : null;
+  if (debug) console.log(tag, 'handlerUrl:', handlerUrl);
+
+  if (handlerFunction) return await handlerFunction(context, element, Pip);
+  else if (handlerUrl) {
+    const response: any = await Request.post({ uri: handlerUrl, body: context, });
+    return response.body;
+  } else {
+    throw TypeError(`${type} #${element.id} has an invalid handler.\
+    Must be either a Function or a url (pass npm's 'valid-url').`);
+  }
+}
+/** Handler operations */
+/* XACMLElement operations */
 
 
 // {

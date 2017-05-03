@@ -1,5 +1,9 @@
 import { StrEnum } from './utils';
 
+export const XACMLElements: string[] = ['Rule', 'Policy', 'PolicySet'];
+export const XACMLElement = StrEnum(XACMLElements);
+export type XACMLElement = keyof typeof XACMLElement;
+
 export const HttpMethods: string[] = ['Get', 'Head', 'Post', 'Put', 'Delete', 'Trace', 'Options', 'Connect', 'Patch'];
 export const HttpMethod = StrEnum(HttpMethods);
 export type HttpMethod = keyof typeof HttpMethod;
@@ -147,10 +151,11 @@ export type CombiningAlgorithm = keyof typeof CombiningAlgorithm;
 
 
 
+export const Biases: string[] = Effects.slice();
+export const Bias = StrEnum(Biases);
+export type Bias = keyof typeof Biases;
 
-// Default is PepBias.Deny.
-export enum PepBias {
-  Deny,
-  Permit,
-}
+// export const ObligationError = {
+//   Id: 'Element
+// }
 

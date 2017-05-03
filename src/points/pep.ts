@@ -1,9 +1,12 @@
 import { Singleton } from '../classes/singleton';
-import { Decision, Effect, PepBias, } from '../constants';
-import { Context, Obligation, Advice, id } from '../interfaces';
+import { Request } from '../classes/request';
+import { Decision, Effect, Bias, XACMLElement, } from '../constants';
+import { Context, Policy, PolicySet, Obligation, Advice, id, HandlerResult, } from '../interfaces';
 import { Settings } from '../settings';
-import { isArray } from '../utils';
+import { isArray, evaluateHandler, unique, isPolicy, isPolicySet, flatten, } from '../utils';
 import { Pdp } from './pdp';
+import { Prp } from './prp';
+import { Pip } from './pip';
 import { Bootstrap } from '../bootstrap';
 
 // TODO: Implement caching in the future.
@@ -13,142 +16,172 @@ export class Pep extends Singleton {
   public static async EvaluateAuthorizationRequest(ctx: any, next: Function): Promise<void> {
     const tag: string = `${Pep.tag}.EvaluateAuthorizationRequest()`;
     let _context: any = !Settings.Pep.isGateway ? ctx : {
-      action: {
-        method: ctx.request.method,
-      },
-      // TODO: Retrieve resource id?
-      resource: {
-        id: ctx.request.headers.host,
-      },
-      // TODO: Retrieve resource id?
-      subject: {
-        // PIP or PRP
-        id: await Pep.retrieveSubjectId(ctx),
-      }
+      returnReason: Settings.Pep.returnReason,
+      returnPolicyList: Settings.Pep.returnPolicyList,
+      returnAdviceResults: Settings.Pep.returnAdviceResults,
+      returnObligationResults: Settings.Pep.returnObligationResults,
+      action: { method: ctx.request.method, },
+      resource: { id: await Pep.retrieveResourceId(ctx) },
+      subject: { id: await Pep.retrieveSubjectId(ctx) },
+      environment: {},
     };
-
-    Object.assign(_context, {
-      returnPolicyList: _context.hasOwnProperty('returnPolicyList') ?
-        _context.returnPolicyList : Settings.Pep.returnPolicyList,
-      combinedDecision: _context.hasOwnProperty('combinedDecision') ?
-        _context.combinedDecision : Settings.Pep.combinedDecision,
-    });
 
     const contextErrors: Error[] = [];
     const context: Context = Bootstrap.getContext(_context, contextErrors);
-    // TODO: Do that koa assert with error code?
-    if (contextErrors.length) throw contextErrors;
+    if (contextErrors.length) {
+      if (Settings.Pep.isGateway) ctx.assert(!contextErrors.length, 300);
+      else throw contextErrors;
+    }
 
     await Pdp.evaluateDecisionRequest(context);
-    await Pep.evaluateDecisionResponse(context);
-    await Pep.evaluateAuthorizationResponse(context);
-
-    // TODO: What now?
-    // If decision ok and gateway, contact backend. In this case dont return policy and wait wut shudnt those 2 be in PDP?
-    // If not ok add juz decision.
+    await Pep.evaluateDecisionResponse(ctx, context);
     await next;
   }
 
-  // TODO: Write how to implement this.
-  // TODO: Same for resource?
-  private static async retrieveSubjectId(context: Context): Promise<id> {
+  private static async retrieveElementById(id: id, element: string, handler: string): Promise<any> {
+    const tag: string = `${Pep.tag}.retrieveElementById()`;
+    throw Error(`${tag}: Cannot retrieve ${element} #${id}. ${handler} is not registered with the Prp.`);
+  }
+  // Element accessors by id which MUST be defined by the end-user.
+  public static _retrieveSubjectId = (ctx: any) => Pep.retrieveElementById(ctx, 'subject', '_retrieveSubjectId');
+  public static _retrieveResourceId = (ctx: any) => Pep.retrieveElementById(ctx, 'resource', '_retrieveResourceId');
+
+  private static async retrieveSubjectId(ctx: any): Promise<id> {
     const tag: string = `${Pep.tag}.retrieveSubjectId()`;
-    // Promise with id?
-    // TODO: Add registerX functions, set methods in a hashmap, all must be set for the program to run (can be checked in bootstrap process? maybe a different one than prp)
-    const id: id = undefined;
+    if (Settings.Pep.debug) console.log(tag, 'ctx:', ctx);
+    const id: id = await Pep._retrieveSubjectId(ctx);
     if (Settings.Pep.debug) console.log(tag, 'id:', id);
     return id;
   }
 
-  public static async evaluateDecisionResponse(context: Context): Promise<Decision> {
+  private static async retrieveResourceId(ctx: any): Promise<id> {
+    const tag: string = `${Pep.tag}.retrieveResourceId()`;
+    if (Settings.Pep.debug) console.log(tag, 'ctx:', ctx);
+    const id: id = await Pep._retrieveSubjectId(ctx);
+    if (Settings.Pep.debug) console.log(tag, 'id:', id);
+    return id;
+  }
+
+  public static async evaluateDecisionResponse(ctx: any, context: Context): Promise<void> {
     const tag: string = `${Pep.tag}.evaluateDecisionResponse()`;
-
-    // TODO: Return fulfilled/unfulfilled obligations and advice
-    // or just change the final decision in the call
-    // (then there's no info what went wrong)?
-
-    // TODO: Obligation wrapper - reference to the obligation/advice to fulfill,
-    // and whether it was or was not fulfilled.
-    // TODO: Instead of fulfilled boolean, pass in the whole response!!!!
-    // const obligationWrapper: { obligation: Obligation, fulfilled: boolean} = { obligation: {} as Obligation, fulfilled: true };
-    // TODO: If pep isnt gateway... add flag to fulfill the obligations and advice here or just forward to backend since it's technically the pep then?
-    // Could just send ids of the obligations, advice.
-
-    // TODO: COuld add a flag separately on each obligation and advice whether to fulfill it? Whats the piint? Only if pep is backend and backend doesnt want to deal with that shiit
-    // Only case.
-
-    let obligationsFulfilled: boolean;
-    let adviceFulfilled: boolean;
-    if (Settings.Pep.isGateway) {
-      const obligationContainers: any[] = await Pep.evaluateObligations(context);
-      // TODO: Not all gun be simple responses, make the returned object simple to mock.
-      // IE, obligation to request 10 services, 3 fail - have to allow a custom error message or smth.
-      obligationsFulfilled = obligationContainers.reduce((result, obligation) => !result ? false : obligation.response.statusCode === 201, true);
-      // Advice can not be checked if obligations werent ok
-      if (obligationsFulfilled) {
-        const adviceContainers: any[] = await Pep.evaluateAdvice(context);
-        adviceFulfilled = adviceContainers.reduce((result, advice) => !result ? false : advice.response.statusCode === 201, true);
-      }
+    if (Settings.Pep.bias === Bias.Permit) {
+      if (context.decision !== Decision.Deny) context.decision = Decision.Permit;
     } else {
-      // (!Settings.Pep.isGateway && !Settings.Pep.fulfillObligations)
-      // Pep doesnt care about the obligations and advice since its not the real pep.
-      obligationsFulfilled = true;
-      adviceFulfilled = true;
+      if (context.decision !== Decision.Permit) context.decision = Decision.Deny;
     }
 
-    // TODO: just set decision in obligatins if it changes
-    // logic too complex to kee all just here
-    const decision: Decision = context.decision;
-
-    if (Settings.Pep.bias === PepBias.Deny) {
-      return decision === Decision.Permit && obligationsFulfilled ? Effect.Permit : Effect.Deny;
-      // if (decision === Decision.Permit && understandObligations) {
-      //   return Effect.Permit;
-      // } else {
-      //   return Effect.Deny;
-      // }
+    if (context.decision === Decision.Deny) {
+      const reason: string = `Evaluated decision is Deny`;
+      context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
+    } else {
+      const obligationResults: HandlerResult[] = await Pep.evaluateObligations(context);
+      const unfulfilledObligations: HandlerResult[] = obligationResults.filter(res => res.err);
+      if (unfulfilledObligations.length) {
+        context.decision = Decision.Deny;
+        const reason: string = `Unfulfilled obligations: [${unfulfilledObligations.map(obligation => obligation.id).join(' ')}]`;
+        context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
+        context.obligationResults = obligationResults;
+      } else {
+        const adviceResults: HandlerResult[] = await Pep.evaluateAdvice(context);
+        context.adviceResults = adviceResults;
+      }
     }
 
-    if (Settings.Pep.bias === PepBias.Permit) {
-      return decision === Decision.Deny && obligationsFulfilled ? Effect.Deny : Effect.Permit;
-      // if (decision === Decision.Deny && understandObligations) {
-      //   return Effect.Deny;
-      // } else {
-      //   return Effect.Permit;
-      // }
+    Pep.evaluateAuthorizationResponse(ctx, context);
+  }
+
+  public static async evaluateObligations(context: Context): Promise<HandlerResult[]> {
+    const tag: string = `${Pep.tag}.evaluateObligations()`;
+    const obligationIds: id[] = Pep.gatherIds(context.policyList.map(container => container.policy), 'obligationIds');
+    const obligationResults: HandlerResult[] = [];
+    for (const id of obligationIds) {
+      const obligation: Obligation = Prp.getObligationById(id);
+      const container: HandlerResult = { id: obligation.id };
+
+      if (!obligation) {
+        container.err = `Not existing obligation`;
+      } else {
+        await Pip.retrieveAttributes(context, obligation.attributeMap);
+        try {
+          container.res = await evaluateHandler(context, obligation, 'Obligation', Pip);
+        } catch (err) {
+          container.err = err;
+        }
+      }
+      obligationResults.push(container);
+      if (!container.err) return obligationResults;
     }
-
-    return context.body.decision;
-
+    return obligationResults;
   }
 
-  public static async evaluateAuthorizationResponse(context: Context): Promise<void> {
-    context.response.body = context.decision;
+  public static async evaluateAdvice(context: Context): Promise<HandlerResult[]> {
+    const tag: string = `${Pep.tag}.evaluateAdvice()`;
+    const adviceIds: id[] = Pep.gatherIds(context.policyList.map(container => container.policy), 'adviceIds');
+    const adviceResults: HandlerResult[] = [];
+    for (const id of adviceIds) {
+      const advice: Advice = Prp.getAdviceById(id);
+      const container: HandlerResult = { id: advice.id };
+
+      if (!advice) {
+        container.err = `Not existing advice`;
+      } else {
+        await Pip.retrieveAttributes(context, advice.attributeMap);
+        try {
+          container.res = await evaluateHandler(context, advice, 'advice', Pip);
+        } catch (err) {
+          container.err = err;
+        }
+      }
+      adviceResults.push(container);
+    }
+    return adviceResults;
   }
 
-  // How does this work? Does it really just gets checked? And if all checks out, return
-  // effect and then carry out the obligations?
-  // !!! Has to be checked if it's ok and can be done, then return true.
-  //  What it entails depends on the user? Check if server available etc?
-  public static async evaluateObligations(obligations: Obligation[]): Promise<any[]> {
-    // const tag: string = `${Pep.tag}.understandAllObligations()`;
-    // obligations = isArray(obligations) ? obligations : [];
-    // if (context.pep.debug) console.log(tag, 'obligations:', obligations);
-    // const understandAllObligations: boolean = obligations.reduce((v, obligation) =>
-    //   v && Pep.UnderstandObligation(obligation), true);
-    // if (context.pep.debug) console.log(tag, 'understandAllObligations:', understandAllObligations);
-    // return understandAllObligations;
-    return [];
-  }
+  public static gatherIds = (policyList: (Policy | PolicySet)[], key: string): id[] =>
+    unique(flatten(policyList.map(_policy => {
+      const policySet: boolean = isPolicySet(_policy);
+      if (policySet) {
+        const policySet: PolicySet = _policy;
+        return [
+          ...policySet[key],
+          ...Pep.gatherIds([...policySet.policies, ...policySet.policySets], key)
+        ];
+      }
 
-  // Obligation checking enum? Off/On? Global obligation map by id?
-  // Allow pauth /obligation/ requests to set if obligation is or isnt available!!!!
-  // NOISSSS
-  public static async evaluateAdvice(obligation: Obligation): Promise<any[]> {
-    // const tag: string = `${Pep.tag}.understandAllObligation()`;
-    // const understandObligation: boolean = true;
-    // if (context.pep.debug) console.log(tag, 'understandObligation:', understandObligation);
-    // return understandObligation;
-    return [];
+      const policy: Policy = _policy;
+      return [
+        ...policy[key],
+        ...policy.rules.map(rule => rule[key])
+      ];
+    })))
+
+  public static async evaluateAuthorizationResponse(ctx: any, context: Context): Promise<void> {
+    const tag: string = `${Pep.tag}.evaluateAuthorizationResponse()`;
+    const headers: any = {};
+    if (Settings.Pep.debug) console.log(tag, 'headers:', headers);
+
+    const body: any = {
+      decision: context.decision,
+    };
+
+    if (context.returnReason) body.reason = context.reason;
+    if (context.returnPolicyList) body.policyList = context.policyList;
+    if (context.returnAdviceResults) body.adviceResults = context.adviceResults;
+    if (context.returnObligationResults) body.obligationResults = context.obligationResults;
+
+    if (Settings.Pep.debug) console.log(tag, 'body:', body);
+
+    if (Settings.Pep.isGateway) {
+      if (body.decision === Decision.Permit) {
+        // TODO: Have to set manually?
+        // request.originalUrl etc
+        const originalRequestResponse: any = await Request.request(ctx.request);
+        ctx.body = originalRequestResponse;
+      } else {
+        // TODO:
+        ctx.status = 301;
+      }
+    }
+    ctx.body = ctx.body || body;
   }
 }

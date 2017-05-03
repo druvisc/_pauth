@@ -1,15 +1,40 @@
 import { expect } from 'chai';
-import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, } from '../constants';
-import { url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice, } from '../interfaces';
+import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, XACMLElement, } from '../constants';
+import { id, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice, } from '../interfaces';
 import { Singleton } from '../classes/singleton';
 import { Request } from '../classes/request';
 import { Language } from '../language';
 import { Settings } from '../settings';
 
-import { isBoolean, isFunction, isString, includes, } from '../utils';
+import { isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy, isPolicySet, } from '../utils';
 import { Prp } from './prp';
 import { Pip } from './pip';
 
+
+// The PDP SHALL request the values of attributes in the request context from
+// the context handler. The context handler MAY also add attributes to the request context
+// without the PDP requesting them. The PDP SHALL reference the attributes as if they were
+// in a physical request context document, but the context handler is responsible for
+// obtaining and supplying the requested values by whatever means it deems appropriate,
+// including by retrieving them from one or more Policy Information Points.
+// The context handler SHALL return the values of attributes that match the attribute
+// designator or attribute selector and form them into a bag of values with the specified
+// data-type. If no attributes from the request context match, then the attribute SHALL
+// be considered missing. If the attribute is missing, then MustBePresent governs whether
+// the attribute designator or attribute selector returns an empty bag or an “Indeterminate”
+// result. If MustBePresent is “False” (default value), then a missing attribute SHALL
+// result in an empty bag. If MustBePresent is “True”, then a missing attribute SHALL result
+// in 3305 “Indeterminate”. This “Indeterminate” result SHALL be handled in accordance with
+// the specification of the 3306 encompassing expressions, rules, policies and policy sets.
+// If the result is “Indeterminate”, then the 3307 AttributeId, DataType and Issuer of
+// the attribute MAY be listed in the authorization decision as 3308 described
+// in Section 7.17. However, a PDP MAY choose not to return such information
+// for security reasons.
+// Regardless of any dynamic modifications of the request context during policy evaluation,
+// the PDP 3311 SHALL behave as if each bag of attribute values is fully populated in the
+// context before it is first tested, 3312 and is thereafter immutable during evaluation.
+// (That is, every subsequent test of that attribute shall use 3313 the same bag of
+// values that was initially tested.)
 
 // TODO: Remove context where it's not necessary?
 // TODO: Allow to add priority policies/handlers, to run before any applicable policies (check IP or whatever).
@@ -46,26 +71,19 @@ import { Pip } from './pip';
 export class Pdp extends Singleton {
   private static readonly tag: string = 'Pdp';
 
-  public static readonly isRule = (v: any): boolean => v.effect;
-  public static readonly isPolicy = (v: any): boolean => !!v.rules;
-  public static readonly isPolicySet = (v: any): boolean => !!v.policies || !!v.policySets;
-
   public static async evaluateDecisionRequest(context: Context): Promise<Decision> {
     const tag: string = `${Pdp.tag}.evaluateDecisionRequest()`;
     const policies: Policy[] = await Prp.retrieveContextPolicies(context);
-    if (Settings.Pdp.debug) console.log(tag, 'policies:', policies);
     const policySets: PolicySet[] = await Prp.retrieveContextPolicySets(context);
-    if (Settings.Pdp.debug) console.log(tag, 'policySets:', policySets);
-    const policySet: PolicySet = context.policySet = {
+    const policySet: PolicySet = {
       id: null,
       target: null,
-      version: null,
       combiningAlgorithm: Settings.Pdp.combiningAlgorithm,
       policies,
       policySets,
     };
-
-    const decision: Decision = context.body.decision = await Pdp.combineDecision(context, policySet);
+    if (Settings.Pdp.debug) console.log(tag, 'policySet:', policySet);
+    const decision: Decision = context.decision = await Pdp.combineDecision(context, policySet);
     if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
     return decision;
   }
@@ -75,12 +93,25 @@ export class Pdp extends Singleton {
   public static async combineDecision(context: Context, policy: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Promise<Decision> {
     const tag: string = `${Pdp.tag}.combineDecision()`;
+    const element: XACMLElement = isPolicy(policy) ? XACMLElement.Policy : XACMLElement.PolicySet;
+
+    // context.obligations = [...context.obligations, {
+    //   id: policy.id,
+    //   element,
+    //   obligationIds: policy.obligationIds,
+    // }];
+
+    // context.advice = [...context.advice, {
+    //   id: policy.id,
+    //   element,
+    //   adviceIds: policy.adviceIds,
+    // }];
 
     let decision: Decision;
     if (!includes(CombiningAlgorithms, combiningAlgorithm)) {
-      decision = Settings.Pdp.fallbackDecision;
+      decision = Settings.Pdp.bias;
       if (Settings.Pdp.debug) console.log(tag, `Invalid combiningAlgorithm ${combiningAlgorithm}\
-      Will using the Pdp.fallbackDecision (${Decision[decision]}`);
+      Will using the Pdp.bias (${Decision[decision]}`);
     } else {
       if (combiningAlgorithm === CombiningAlgorithm.DenyOverrides) decision = await Pdp.denyOverrides(context, policy);
       if (combiningAlgorithm === CombiningAlgorithm.PermitOverrides) decision = await Pdp.permitOverrides(context, policy);
@@ -95,14 +126,7 @@ export class Pdp extends Singleton {
     if (policy.id) {
       // Using an array because the same policy and policy set could be evaluated
       // multiple times with different targets and decisions.
-      context.policyList = [
-        ...context.policyList,
-        {
-          id: policy.id,
-          target: policy.target,
-          decision,
-        }
-      ];
+      context.policyList = [...context.policyList, { policy, decision }];
     }
 
     return decision;
@@ -110,7 +134,7 @@ export class Pdp extends Singleton {
 
   public static async denyOverrides(context: Context, policyOrSet: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
     const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let deny: boolean = false;
@@ -143,7 +167,7 @@ export class Pdp extends Singleton {
 
   public static async permitOverrides(context: Context, policyOrSet: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
     const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let permit: boolean = false;
@@ -176,7 +200,7 @@ export class Pdp extends Singleton {
 
   public static async denyUnlessPermit(context: Context, policyOrSet: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
     const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let permit: boolean = false;
@@ -200,7 +224,7 @@ export class Pdp extends Singleton {
 
   public static async permitUnlessDeny(context: Context, policyOrSet: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
     const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let deny: boolean = false;
@@ -224,7 +248,7 @@ export class Pdp extends Singleton {
 
   public static async firstApplicable(context: Context, policyOrSet: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
     const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let decision: Decision = Decision.NotApplicable;
@@ -244,7 +268,7 @@ export class Pdp extends Singleton {
 
   public static async onlyOneApplicable(context: Context, policyOrSet: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = Pdp.isPolicySet(policyOrSet) ? null : policyOrSet;
+    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
     const policySet: PolicySet = policy === null ? policyOrSet : null;
 
     let indeterminate: boolean = false;
@@ -284,7 +308,7 @@ export class Pdp extends Singleton {
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
-    const ruleHandler: RuleHandler = rule.handler;
+    const ruleHandler: RuleHandler = Prp.getRuleHandlerById(rule.handlerId);
     const attributeMap: any = ruleHandler && ruleHandler.attributeMap || Prp.retrieveRuleAttributeMap(rule);
     if (Settings.Pdp.debug) console.log(tag, 'attributeMap:', attributeMap);
     await Pip.retrieveAttributes(context, attributeMap);
@@ -293,39 +317,50 @@ export class Pdp extends Singleton {
     if (!ruleHandler) {
       decision = Pdp.evaluateCondition(context, rule);
     } else if (ruleHandler) {
-      const handlerFunction: Function = isFunction(ruleHandler.handler) ? ruleHandler.handler as Function : null;
-      const handlerUrl: url = handlerFunction === null ? ruleHandler.handler as url : null;
-
-      if (handlerFunction) {
-        decision = await handlerFunction(context, rule, Pip);
-      } else if (handlerUrl) {
-        decision = await Request.post({ uri: handlerUrl, body: context, });
-      } else {
-        throw Error(`Rule #${rule.id} ruleHandler has an invalid handler.\
-         Must be either a Function or a url (pass npm's 'valid-url').`);
-      }
+      decision = await evaluateHandler(context, ruleHandler, 'RuleHandler', Pip);
+      // TODO: Check result?
     } else {
+      // TODO: Is it true here?
       // No condition or ruleHandler defined.
       decision = true;
     }
+
     if (Settings.Pdp.debug) console.log(tag, 'decision:', decision);
     const effect: Effect | Decision = decision === true ? rule.effect : Decision.NotApplicable;
     if (Settings.Pdp.debug) console.log(tag, 'effect:', effect);
 
-    const obligationIds: id[] = rule.obligations.filter(obligation =>
-      !obligation.effect || obligation.effect === effect
-    ).map(obligation => {
-      // Evaluate?
-    });
+    // context.obligations = [...context.obligations, {
+    //   id: rule.id,
+    //   element: XACMLElement.Rule,
+    //   obligationIds: rule.obligationIds,
+    // }];
 
-    const advice: Advice[] = rule.advice.map(advice =>
-      !advice.effect || advice.effect === effect
-    ).map(advice => {
-      // Evaluate?
-    });
+    // context.advice = [...context.advice, {
+    //   id: rule.id,
+    //   element: XACMLElement.Rule,
+    //   adviceIds: rule.adviceIds,
+    // }];
+    // Pdp.addApplicableObligationsAndAdvice(context, effect, rule, 'Rule');
 
     return effect;
   }
+
+  // public static addApplicableObligationsAndAdvice(context: Context, effect: Effect | Decision, element: Rule | Policy | PolicySet, type: string): void {
+  //   const tag: string = `${Pdp.tag}.${element.id}.addApplicableObligationsAndAdvice()`;
+  //   const obligationIds: id[] = element.obligationIds.filter(obligationId => {
+  //     const obligation: Obligation = Prp.retrieveObligationById(obligationId);
+  //     return !obligation.effect || obligation.effect === effect;
+  //   });
+  //   if (Settings.Pdp.debug) console.log(tag, `${type} #${element.id} obligations to apply:`, obligationIds);
+  //   context.obligationIds = [...context.obligationIds, ...obligationIds];
+
+  //   const adviceIds: id[] = element.obligationIds.filter(adviceId => {
+  //     const advice: Obligation = Prp.retrieveAdviceById(adviceId);
+  //     return !advice.effect || advice.effect === effect;
+  //   });
+  //   if (Settings.Pdp.debug) console.log(tag, `${type} #${element.id} advice to apply:`, adviceIds);
+  //   context.adviceIds = [...context.adviceIds, ...adviceIds];
+  // }
 
   // 7.7 Target evaluation
   public static evaluateTarget(context: Context, element: Rule | Policy | PolicySet): boolean | Decision {

@@ -80,6 +80,44 @@ export class Prp extends Singleton {
     return request;
   }
 
+
+  public static getRuleById(id: id): Rule {
+    const tag: string = `${Prp.tag}.getRuleById()`;
+    const rule: Rule = Prp.ruleMap[id];
+    return rule;
+  }
+
+  public static getPolicyById(id: id): Policy {
+    const tag: string = `${Prp.tag}.getPolicyById()`;
+    const policy: Policy = Prp.policyMap[id];
+    return policy;
+  }
+
+  public static getPolicySetById(id: id): Policy {
+    const tag: string = `${Prp.tag}.getPolicySetById()`;
+    const policySet: PolicySet = Prp.policySetMap[id];
+    return policySet;
+  }
+
+  public static getObligationById(id: id): Obligation {
+    const tag: string = `${Prp.tag}.getObligationById()`;
+    const obligation: Obligation = Prp.obligationMap[id];
+    return obligation;
+  }
+
+  public static getAdviceById(id: id): Advice {
+    const tag: string = `${Prp.tag}.getAdviceById()`;
+    const advice: Advice = Prp.adviceMap[id];
+    return advice;
+  }
+
+  public static getRuleHandlerById(id: id): RuleHandler {
+    const tag: string = `${Prp.tag}.getRuleHandlerById()`;
+    const ruleHandler: RuleHandler = Prp.ruleHandlerMap[id];
+    return ruleHandler;
+  }
+
+
   private static async retrieveElementById(id: id, element: string, handler: string): Promise<any> {
     const tag: string = `${Prp.tag}.retrieveElementById()`;
     throw Error(`${tag}: Cannot retrieve ${element} #${id}. ${handler} is not registered with the Prp.`);
@@ -105,18 +143,6 @@ export class Prp extends Singleton {
     const tag: string = `${Prp.tag}.retrievePolicySetById()`;
     const request: Promise<any> = Prp._retrievePolicySetById(id);
     return request;
-  }
-
-  private static retrieveObligationById(id: id): any {
-    const tag: string = `${Prp.tag}.retrieveObligationById()`;
-    const obligation: any = Prp.obligationMap[id];
-    return obligation;
-  }
-
-  private static retrieveAdviceById(id: id): any {
-    const tag: string = `${Prp.tag}.retrieveAdviceById()`;
-    const advice: any = Prp.adviceMap[id];
-    return advice;
   }
 
 
@@ -221,6 +247,7 @@ export class Prp extends Singleton {
       throw Bootstrap.errors;
     }
 
+    // TODO: Check if ruleHandlers, advice, obligations exist (all ids match up).
     Prp.bootstrapped = true;
     Prp.createPolicyTargetMap();
     Prp.createAttributeMapsFromRuleConditions();

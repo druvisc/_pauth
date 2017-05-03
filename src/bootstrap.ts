@@ -21,6 +21,11 @@ export class Bootstrap extends Singleton {
   public static readonly normalizeUrl = (v: url): string =>
     isUrl(v) ? v : null
 
+  private static readonly normalizeBoolean = (v: boolean): boolean =>
+    v === true ? true : false
+
+  private static readonly normalizeObject = (v: any): any =>
+    isObject(v) ? v : null
 
   private static readonly normalizeId = (id: id): id =>
     isNumber(id) || isString(id) ? id : null
@@ -177,6 +182,7 @@ export class Bootstrap extends Singleton {
       id: element.id ? Bootstrap.getId(element, 'Subject', errors) : null,
     })
 
+
   public static readonly getEnvironment = (element: Environment, errors: Error[] = Bootstrap.errors): Environment =>
     Object.assign({}, element, {
       // Placeholder.
@@ -184,19 +190,26 @@ export class Bootstrap extends Singleton {
 
   public static readonly getContext = (element: Context, errors: Error[] = Bootstrap.errors): Context =>
     Object.assign({}, element, {
+      returnReason: Bootstrap.normalizeBoolean(element.returnReason),
+      returnPolicyList: Bootstrap.normalizeBoolean(element.returnPolicyList),
+      returnAdviceResults: Bootstrap.normalizeBoolean(element.returnAdviceResults),
+      returnObligationResults: Bootstrap.normalizeBoolean(element.returnObligationResults),
       action: Bootstrap.getAction(element.action, errors),
       resource: Bootstrap.getResource(element.resource, errors),
       subject: Bootstrap.getSubject(element.subject, errors),
       environment: Bootstrap.getEnvironment(element.environment, errors),
+      additional: Bootstrap.normalizeObject(element.additional),
+      policyList: [],
+      adviceResults: [],
+      obligationResults: [],
     })
 
-
   public static readonly getRule = (element: Rule, errors: Error[] = Bootstrap.errors): Rule => {
-    const condition: string[][] = element.handler ? null : Bootstrap.getCondition(element, errors);
-    const ruleHandler: RuleHandler = element.condition ? null : Bootstrap.getRuleHandler(element.handler, errors);
+    const condition: string[][] = element.handlerId ? null : Bootstrap.getCondition(element, errors);
+    const handlerId: id = element.condition ? null : Bootstrap.normalizeId(element.handlerId);
 
-    if (condition && ruleHandler) {
-      errors.push(TypeError(`Rule #${element.id} has both the condition and ruleHandler defined.`));
+    if (condition && handlerId) {
+      errors.push(TypeError(`Rule #${element.id} has both the condition and handlerId defined.`));
     }
 
     return Object.assign({}, element, {
@@ -205,7 +218,7 @@ export class Bootstrap extends Singleton {
       effect: Bootstrap.getEffect(element, 'Rule', errors),
       description: Bootstrap.getDescription(element, 'Rule', errors),
       condition,
-      ruleHandler,
+      handlerId,
       obligationIds: Bootstrap.getIds(element, 'obligationIds', 'Rule', errors),
       adviceIds: Bootstrap.getIds(element, 'adviceIds', 'Rule', errors),
     });

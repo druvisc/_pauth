@@ -22,4 +22,6 @@ export class Request extends Singleton {
     const options = Object.assign({}, Request.options, isString(_options) ? { uri: _options } : _options);
     return request(options);
   }
+
+  public static request = request;
 }
