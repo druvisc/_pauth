@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "test": "mocha -r ts-node/register src/test/*.ts"
+    "test": "mocha -r ts-node/register src/test/*.ts",
+    "start": "ts-node src/app.ts"
   },
   "author": "Druvis Cukurs",
   "license": "ISC",
@@ -22,6 +23,7 @@
     "core-js": "^2.4.1",
     "jsonpath": "^0.2.11",
     "koa": "^2.2.0",
+    "koa-logger": "^2.0.1",
     "request": "^2.81.0",
     "request-promise": "^4.2.0",
     "valid-url": "^1.0.9"

@@ -1,8 +1,8 @@
 import * as jp from 'jsonpath';
-import { substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique, } from './utils';
-import { Singleton } from './classes/singleton';
-import { Settings } from './settings';
-import { Context, Rule } from './interfaces';
+import { substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique, } from '../utils';
+import { Singleton } from './singleton';
+import { Settings } from '../settings';
+import { Context, Rule } from '../interfaces';
 
 const SubscriptStart: string = '[';
 const SubscriptEnd: string = ']';
@@ -16,7 +16,7 @@ export class Language extends Singleton {
 
   // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
   // TODO: Validate query?
-  public static strToExpression(str: string): string {
+  public static strToExpression(context: Context, str: string): string {
     const tag: string = `${Language.tag}.strToExpression()`;
     if (Settings.Language.debug) console.log(tag, 'str:', str);
     const queries: string[] = Language.extractQueries(str);

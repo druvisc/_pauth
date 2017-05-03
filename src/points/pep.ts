@@ -1,4 +1,5 @@
 import { Singleton } from '../classes/singleton';
+import { Bootstrap } from '../classes/bootstrap';
 import { Request } from '../classes/request';
 import { Decision, Effect, Bias, XACMLElement, } from '../constants';
 import { Context, Policy, PolicySet, Obligation, Advice, id, HandlerResult, } from '../interfaces';
@@ -7,7 +8,6 @@ import { isArray, evaluateHandler, unique, isPolicy, isPolicySet, flatten, } fro
 import { Pdp } from './pdp';
 import { Prp } from './prp';
 import { Pip } from './pip';
-import { Bootstrap } from '../bootstrap';
 
 // TODO: Implement caching in the future.
 export class Pep extends Singleton {

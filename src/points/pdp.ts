@@ -2,8 +2,8 @@ import { expect } from 'chai';
 import { Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, XACMLElement, } from '../constants';
 import { id, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice, } from '../interfaces';
 import { Singleton } from '../classes/singleton';
+import { Language } from '../classes/language';
 import { Request } from '../classes/request';
-import { Language } from '../language';
 import { Settings } from '../settings';
 
 import { isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy, isPolicySet, } from '../utils';
@@ -410,7 +410,7 @@ export class Pdp extends Singleton {
   // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
   public static expressionToDecision(context: Context, str: string): boolean | Decision {
     const tag: string = `${Pdp.tag}.expressionToDecision()`;
-    const expression: string = Language.strToExpression(str);
+    const expression: string = Language.strToExpression(context, str);
     if (Settings.Pdp.debug) console.log(tag, 'expression:', expression);
     if (!expression) {
       if (Settings.Pdp.debug) console.log(tag, 'String evaluated to an invalid expression.');

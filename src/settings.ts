@@ -2,16 +2,16 @@ import { Bias, Effect, Environment, Decision, Operation, CombiningAlgorithm, } f
 import { Singleton } from './classes/singleton';
 
 class Settings extends Singleton {
-  public static readonly environment: Environment;
-  public static readonly development: boolean = Settings.environment !== Environment.Production;
+  // public static readonly environment: Environment;
+  // public static readonly development: boolean = Settings.environment !== Environment.Production;
 
   public static readonly Pap = {
-    debug: false,
+    debug: true,
   };
 
   public static readonly Pep = {
     port: 3000,
-    debug: false,
+    debug: true,
     isGateway: true,
     bias: Bias.Deny,
     returnReason: false,
@@ -35,19 +35,19 @@ class Settings extends Singleton {
   public static readonly Prp = {
     cacheIdElements: true,
     cacheUrlElements: true,
-    debug: false,
+    debug: true,
   };
 
   public static readonly Pip = {
-    debug: false,
+    debug: true,
   };
 
   public static readonly Language = {
-    debug: false,
+    debug: true,
   };
 
   public static readonly Validate = {
-    debug: false,
+    debug: true,
   };
 }
 

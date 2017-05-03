@@ -1,14 +1,15 @@
-import { Singleton } from './classes/singleton';
+import { Singleton } from './singleton';
 import {
   id, url, version, Context, Action, Resource, Subject, Environment, Rule, RuleHandler,
   Policy, PolicySet, Obligation, Advice,
-} from './interfaces';
-import {
-  isString, isUrl, isNumber, isArray, isFunction, isObject, includes,
-} from './utils';
+} from '../interfaces';
 import {
   Effect, Effects, CombiningAlgorithm, CombiningAlgorithms, HttpMethod, HttpMethods,
-} from './constants';
+} from '../constants';
+import {
+  isString, isUrl, isNumber, isArray, isFunction, isObject, includes,
+} from '../utils';
+
 
 export class Bootstrap extends Singleton {
   private static readonly tag: string = 'Bootstrap';

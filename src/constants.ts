@@ -1,4 +1,8 @@
-import { StrEnum } from './utils';
+export const StrEnum = <T extends string>(keys: Array<T>): {[K in T]: K} =>
+  keys.reduce((StrEnum, k) => {
+    StrEnum[k] = k;
+    return StrEnum;
+  }, Object.create(null));
 
 export const XACMLElements: string[] = ['Rule', 'Policy', 'PolicySet'];
 export const XACMLElement = StrEnum(XACMLElements);
