@@ -18,6 +18,10 @@ Prp._retrieveAdvice = async () => advice;
 Prp._retrieveObligations = async () => obligations;
 Prp._retrieveRuleHandlers = async () => [];
 
+Pep._retrieveResourceId = async () => '/products/alcohol';
+Pep._retrieveSubjectId = async () => 1;
+
+
 const app = module.exports = new koa();
 
 Prp.Bootstrap().then(() => {

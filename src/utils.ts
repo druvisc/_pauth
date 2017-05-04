@@ -17,6 +17,11 @@ export const substrCount = (str: string, substr: string): number =>
   str.split(substr).length - 1;
 
 export const isUrl = (v: any): boolean => validUrl.isUri(v);
+
+export const toFirstUpperCase = (v: string): string => `${v[0].toUpperCase()}${v.slice(1).toLowerCase()}`;
+
+export const includesIgnoreCase = (arr: string[], v: string): boolean =>
+  arr.some(arrV => ignoreCaseEqual(arrV, v));
 /** String operations */
 
 
@@ -52,7 +57,7 @@ export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
 
 /** Handler operations */
 export async function evaluateHandler(context: Context, element: RuleHandler | Obligation | Advice, type: string, pip: Pip = Pip): Promise<any> {
-  const tag: string = `evaluateHandler()`;
+  const tag: string = `evaluateHandler() `;
   const debug: boolean = false;
   if (debug) log(tag, 'element:', element);
 

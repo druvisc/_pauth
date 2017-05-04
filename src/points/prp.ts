@@ -5,7 +5,7 @@ import { Request } from '../classes/request';
 import { Settings } from '../settings';
 import { id, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice, } from '../interfaces';
 import { Effect, Effects, CombiningAlgorithm, CombiningAlgorithms, } from '../constants';
-import { flatten, unique, log, } from '../utils';
+import { flatten, unique, log, isPresent } from '../utils';
 
 export class Prp extends Singleton {
   private static readonly tag: string = 'Prp';
@@ -400,9 +400,11 @@ export class Prp extends Singleton {
 
   private static targetMapThroughCacheToElements(context: Context, targetMap: any, elementMap: any): (Policy | PolicySet)[] {
     const tag: string = `${Prp.tag}.targetMapThroughCacheToElements()`;
+    if (Settings.Prp.debug) log(tag, 'targetMap:', targetMap);
+    if (Settings.Prp.debug) log(tag, 'elementMap:', elementMap);
     const queries: string[] = Language.retrieveContextQueries(context);
     if (Settings.Prp.debug) log(tag, 'queries:', queries);
-    const elementIdentifiers: (id | url)[] = unique(flatten(queries.map(query => targetMap[query])));
+    const elementIdentifiers: (id | url)[] = unique(flatten(queries.map(query => targetMap[query]))).filter(isPresent);
     if (Settings.Prp.debug) log(tag, 'elementIdentifiers:', elementIdentifiers);
     const elements: (Policy | PolicySet)[] = elementIdentifiers.map(identifier => elementMap[identifier]);
     if (Settings.Prp.debug) log(tag, 'elements:', elements);
@@ -410,10 +412,12 @@ export class Prp extends Singleton {
   }
 
   private static async targetMapThroughPromiseToElements(context: Context, targetMap: any, retrieve: Function): Promise<(Policy | PolicySet)[]> {
-    const tag: string = `${Prp.tag}.TargetMapThroughDatabaseToElements()`;
+    const tag: string = `${Prp.tag}.targetMapThroughPromiseToElements()`;
+    if (Settings.Prp.debug) log(tag, 'targetMap:', targetMap);
+    if (Settings.Prp.debug) log(tag, 'retrieve:', retrieve);
     const queries: string[] = Language.retrieveContextQueries(context);
     if (Settings.Prp.debug) log(tag, 'queries:', queries);
-    const elementIdentifiers: (id | url)[] = unique(flatten(queries.map(query => targetMap[query])));
+    const elementIdentifiers: (id | url)[] = unique(flatten(queries.map(query => targetMap[query]))).filter(isPresent);
     if (Settings.Prp.debug) log(tag, 'elementIdentifiers:', elementIdentifiers);
     const elementRequests: Promise<(Policy | PolicySet)>[] = elementIdentifiers.map(identifier => retrieve(identifier));
     return Promise.all(elementRequests).then(elements => {

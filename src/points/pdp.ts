@@ -43,10 +43,7 @@ import { Pip } from './pip';
 // (That is, every subsequent test of that attribute shall use 3313 the same bag of
 // values that was initially tested.)
 
-// TODO: Remove context where it's not necessary?
-// TODO: Allow to add priority policies/handlers, to run before any applicable policies (check IP or whatever).
-// TODO: ADD INDETERMINATE(DP, D, P) ?
-// TODO: Implement advice and obligation evaluation
+
 
 
 // If the result is “Indeterminate”, then the AttributeId,
@@ -75,11 +72,17 @@ import { Pip } from './pip';
 // status code, in response to successively-refined 3615 requests.
 
 
+// TODO: What happens when it's not enough with the retrieved Pip attributes?
+// TODO: Check what happens with the null id and target.
+// TODO: Allow to add priority policies/handlers, to run before any applicable policies (check IP or whatever).
+// TODO: Remove context where it's not necessary?
+// TODO: Add Indeterminate(DP, D, P)?
 export class Pdp extends Singleton {
   private static readonly tag: string = 'Pdp';
 
   public static async evaluateDecisionRequest(context: Context): Promise<Decision> {
     const tag: string = `${Pdp.tag}.evaluateDecisionRequest()`;
+    if (Settings.Pdp.debug) log(tag, 'context:', context);
     const policies: Policy[] = await Prp.retrieveContextPolicies(context);
     const policySets: PolicySet[] = await Prp.retrieveContextPolicySets(context);
     const policySet: PolicySet = {

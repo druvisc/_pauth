@@ -22,7 +22,7 @@ class Settings extends Singleton {
 
   public static readonly Pdp = {
     debug: true,
-    combiningAlgorithm: CombiningAlgorithm.PermitUnlessDeny as CombiningAlgorithm,
+    combiningAlgorithm: CombiningAlgorithm.DenyUnlessPermit as CombiningAlgorithm,
     // The fallback decision when:
     // a) a rule, policy or a policy set isn't valid
     // (What happens when a rule within a policy or
@@ -33,9 +33,9 @@ class Settings extends Singleton {
   };
 
   public static readonly Prp = {
+    debug: true,
     cacheIdElements: true,
     cacheUrlElements: true,
-    debug: true,
   };
 
   public static readonly Pip = {

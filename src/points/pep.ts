@@ -4,7 +4,7 @@ import { Request } from '../classes/request';
 import { Decision, Effect, Bias, XACMLElement, } from '../constants';
 import { Context, Policy, PolicySet, Obligation, Advice, id, HandlerResult, } from '../interfaces';
 import { Settings } from '../settings';
-import { log, isArray, evaluateHandler, unique, isPolicy, isPolicySet, flatten, } from '../utils';
+import { log, isArray, evaluateHandler, unique, isPolicy, isPolicySet, flatten, toFirstUpperCase, } from '../utils';
 import { Pdp } from './pdp';
 import { Prp } from './prp';
 import { Pip } from './pip';
@@ -20,7 +20,7 @@ export class Pep extends Singleton {
       returnPolicyList: Settings.Pep.returnPolicyList,
       returnAdviceResults: Settings.Pep.returnAdviceResults,
       returnObligationResults: Settings.Pep.returnObligationResults,
-      action: { method: ctx.request.method, },
+      action: { method: toFirstUpperCase(ctx.method), },
       resource: { id: await Pep.retrieveResourceId(ctx) },
       subject: { id: await Pep.retrieveSubjectId(ctx) },
       environment: {},
@@ -29,6 +29,8 @@ export class Pep extends Singleton {
     const contextErrors: Error[] = [];
     const context: Context = Bootstrap.getContext(_context, contextErrors);
     if (contextErrors.length) {
+      if (Settings.Pep.debug) log(tag, 'contextErrors:', contextErrors);
+      // TODO: Status code.
       if (Settings.Pep.isGateway) ctx.assert(!contextErrors.length, 300);
       else throw contextErrors;
     }
@@ -57,24 +59,27 @@ export class Pep extends Singleton {
   private static async retrieveResourceId(ctx: any): Promise<id> {
     const tag: string = `${Pep.tag}.retrieveResourceId()`;
     if (Settings.Pep.debug) log(tag, 'ctx:', ctx);
-    const id: id = await Pep._retrieveSubjectId(ctx);
+    const id: id = await Pep._retrieveResourceId(ctx);
     if (Settings.Pep.debug) log(tag, 'id:', id);
     return id;
   }
 
   public static async evaluateDecisionResponse(ctx: any, context: Context): Promise<void> {
     const tag: string = `${Pep.tag}.evaluateDecisionResponse()`;
+    if (Settings.Pep.debug) log(tag, 'context.decision:', context.decision);
     if (Settings.Pep.bias === Bias.Permit) {
       if (context.decision !== Decision.Deny) context.decision = Decision.Permit;
     } else {
       if (context.decision !== Decision.Permit) context.decision = Decision.Deny;
     }
+    if (Settings.Pep.debug) log(tag, 'context.decision:', context.decision);
 
     if (context.decision === Decision.Deny) {
       const reason: string = `Evaluated decision is Deny`;
       context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
     } else {
       const obligationResults: HandlerResult[] = await Pep.evaluateObligations(context);
+      if (Settings.Pep.debug) log(tag, 'obligationResults:', obligationResults);
       const unfulfilledObligations: HandlerResult[] = obligationResults.filter(res => res.err);
       if (unfulfilledObligations.length) {
         context.decision = Decision.Deny;
@@ -83,10 +88,11 @@ export class Pep extends Singleton {
         context.obligationResults = obligationResults;
       } else {
         const adviceResults: HandlerResult[] = await Pep.evaluateAdvice(context);
+        if (Settings.Pep.debug) log(tag, 'adviceResults:', adviceResults);
         context.adviceResults = adviceResults;
       }
     }
-
+    if (Settings.Pep.debug) log(tag, 'context.decision:', context.decision);
     Pep.evaluateAuthorizationResponse(ctx, context);
   }
 

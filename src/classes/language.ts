@@ -1,6 +1,7 @@
 import * as jp from 'jsonpath';
 import {
   log, substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique,
+  isObject,
 } from '../utils';
 import { Singleton } from './singleton';
 import { Settings } from '../settings';
@@ -82,13 +83,20 @@ export class Language extends Singleton {
   }
 
   // Context attributes, queries just because the JSONPath's $ is prepended.
+  // TODO: Booleans get sucked in. Either have to check for isObject
+  // or have to place the data in a wrapping object.
   public static retrieveContextQueries(context: Context): string[] {
     const tag: string = `${Language.tag}.retrieveContextQueries()`;
-    const accessedElements: string[] = Object.keys(context);
-    const queries: string[] = flatten(accessedElements.map(accessedElement => {
-      const accessedAttributes: string[] = Object.keys(accessedElement);
-      const queries: string[] = accessedAttributes.map(accessedAttribute =>
-        `$${accessedElement}.${accessedAttribute}`);
+    const elementKeys: string[] = Object.keys(context).filter(k => isObject(context[k]));
+    // if (Settings.Pip.debug) log(tag, 'elementKeys:', elementKeys);
+    const queries: string[] = flatten(elementKeys.map(elementKey => {
+      // if (Settings.Pip.debug) log(tag, 'elementKey:', elementKey);
+      const element: any = context[elementKey];
+      // if (Settings.Pip.debug) log(tag, 'element:', element);
+      const attributeKeys: string[] = Object.keys(element);
+      // if (Settings.Pip.debug) log(tag, 'attributeKeys:', attributeKeys);
+      const queries: string[] = attributeKeys.map(attributeKey =>
+        `$${elementKey}.${attributeKey}`);
       return queries;
     }));
     return queries;

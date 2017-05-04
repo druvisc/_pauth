@@ -1,6 +1,6 @@
-export const StrEnum = <T extends string>(keys: Array<T>): {[K in T]: K} =>
+export const StrEnum = <T extends string>(keys: Array<T>, valueCallback?: Function): {[K in T]: K} =>
   keys.reduce((StrEnum, k) => {
-    StrEnum[k] = k;
+    StrEnum[k] = valueCallback ? valueCallback(k) : k;
     return StrEnum;
   }, Object.create(null));
 
