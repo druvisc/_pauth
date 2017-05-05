@@ -12,8 +12,9 @@ import {
 import { Pdp } from './pdp';
 import { Pip } from './pip';
 
-// TODO: Move Pip to PDP since it's an extension for it.  The PDP will return the context with all the necessary attributes.
 // TODO: Implement caching in the future.
+// TODO: Add flags to use the points separately (with an interface/handlers).
+// Basically if not using separate points, just wrap the point call.
 export class Pep extends Singleton {
   private static readonly tag: string = 'Pep';
 
@@ -184,20 +185,25 @@ export class Pep extends Singleton {
       const container: HandlerResult = { id: obligation.id };
 
       if (!obligation) {
-        container.err = `Not existing obligation.`;
-      } else {
-        await Pip.retrieveAttributes(context, obligation.attributeMap);
-        try {
-          container.res = await evaluateHandler(context, obligation, 'Obligation', Pip);
-        } catch (err) {
-          container.err = err;
+        container.err = `Obligation #${obligation.id} is not registered with the Pep.`;
+      } else if (!obligation.effect || obligation.effect === context.decision) {
+        const missingAttributes: string[] = await Pip.retrieveAttributes(context, obligation.attributeMap);
+        if (missingAttributes.length) {
+          container.err = `Couldn't retrieve these attributes to evaluate Obligation #${obligation.id}: [${missingAttributes.join(', ')}]`;
+        } else {
+          try {
+            container.res = await evaluateHandler(context, obligation, 'Obligation', Pip);
+          } catch (err) {
+            container.err = err;
+            // TODO: Not entirely sure about this. If Pep bias is Deny, then a failing
+            // obligation means a denied authorization decision request, so suddenly
+            // obligations with potentially the opposite effect will be fulfilled?
+            context.decision = Decision.Indeterminate;
+            Pep.evaluatePepBias(context);
+          }
         }
       }
       obligationResults.push(container);
-      // It's possible to stop the obligation evaluation if Pep bias is Deny since
-      // Indeterminate will evaluate to a Deny. On the other hand, if the bias is Permit,
-      // it will stay on Permit through Indeterminate even though obligations have failed.
-      if (Settings.Pep.bias === Bias.Deny && container.err) return obligationResults;
     }
     return obligationResults;
   }
@@ -211,13 +217,17 @@ export class Pep extends Singleton {
       const container: HandlerResult = { id: advice.id };
 
       if (!advice) {
-        container.err = `Not existing advice.`;
-      } else {
-        await Pip.retrieveAttributes(context, advice.attributeMap);
-        try {
-          container.res = await evaluateHandler(context, advice, 'advice', Pip);
-        } catch (err) {
-          container.err = err;
+        container.err = `Advice #${advice.id} is not registered with the Pep.`;
+      } else if (!advice.effect || advice.effect === context.decision) {
+        const missingAttributes: string[] = await Pip.retrieveAttributes(context, advice.attributeMap);
+        if (missingAttributes.length) {
+          container.err = `Couldn't retrieve these attributes to evaluate Advice #${advice.id}: [${missingAttributes.join(', ')}]`;
+        } else {
+          try {
+            container.res = await evaluateHandler(context, advice, 'advice', Pip);
+          } catch (err) {
+            container.err = err;
+          }
         }
       }
       adviceResults.push(container);

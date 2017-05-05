@@ -10,18 +10,17 @@ import { Language } from '../classes/language';
 import { Request } from '../classes/request';
 import { Settings } from '../settings';
 import {
-  log, retrieveElement, isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy,
+  log, retrieveElement, isPresent, isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy,
   isPolicySet,
 } from '../utils';
 import { Prp } from './prp';
 import { Pip } from './pip';
 
 // TODO: What happens when it's not enough with the retrieved Pip attributes?
-// TODO: Check what happens with the null id and target.
+// TODO: Check what happens with the null id and target (wrapped set?).
 // TODO: Allow to add priority policies/handlers, to run before any applicable policies (check IP or whatever).
 // TODO: Remove context where it's not necessary?
 // TODO: Add Indeterminate(DP, D, P)?
-// TODO: Check if ruleHandlers, advice, obligations exist (all ids match up)?
 // TODO: Cache in the future.
 // TODO: Allow to OR obligations and advice depending on their failure?
 export class Pdp extends Singleton {
@@ -63,7 +62,7 @@ export class Pdp extends Singleton {
       errors.push(err);
     }
 
-    if (Settings.Prp.debug) log(tag, '\nruleHandlerMap:', Pdp.ruleHandlerMap);
+    if (Settings.Pdp.debug) log(tag, '\nruleHandlerMap:', Pdp.ruleHandlerMap);
 
     if (errors.length) throw `\n${errors.join('\n')}`;
 
@@ -93,18 +92,6 @@ export class Pdp extends Singleton {
     combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Promise<Decision> {
     const tag: string = `${Pdp.tag}.combineDecision()`;
     const element: XACMLElement = isPolicy(policy) ? XACMLElement.Policy : XACMLElement.PolicySet;
-
-    // context.obligations = [...context.obligations, {
-    //   id: policy.id,
-    //   element,
-    //   obligationIds: policy.obligationIds,
-    // }];
-
-    // context.advice = [...context.advice, {
-    //   id: policy.id,
-    //   element,
-    //   adviceIds: policy.adviceIds,
-    // }];
 
     let decision: Decision;
     if (!includes(CombiningAlgorithms, combiningAlgorithm)) {
@@ -307,45 +294,45 @@ export class Pdp extends Singleton {
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
-    const ruleHandler: RuleHandler = Pdp.getRuleHandlerById(rule.handlerId);
-    const attributeMap: any = ruleHandler && ruleHandler.attributeMap || Pdp.retrieveRuleAttributeMap(rule);
+    let ruleHandler: RuleHandler;
+    if (isPresent(rule.handlerId)) {
+      ruleHandler = Pdp.getRuleHandlerById(rule.handlerId);
+      if (!ruleHandler) {
+        if (Settings.Pdp.debug) log(tag, `Rule #${rule.id} Handler #${rule.handlerId} is not registered with the Pdp. Evaluating rule to ${Decision[Decision.Indeterminate]}.`);
+        return Decision.Indeterminate;
+      }
+    }
+
+    const attributeMap: any = ruleHandler && ruleHandler.attributeMap || Pdp.retrieveRuleConditionAttributeMap(rule);
     if (Settings.Pdp.debug) log(tag, 'attributeMap:', attributeMap);
-    await Pip.retrieveAttributes(context, attributeMap);
+    const missingAttributes: string[] = await Pip.retrieveAttributes(context, attributeMap);
+    if (missingAttributes.length) {
+      if (Settings.Pdp.debug) log(tag, `Couldn't retrieve these attributes to evaluate Rule #${rule.id} and evaluating rule to ${Decision[Decision.Indeterminate]}: [${missingAttributes.join(', ')}]`);
+      return Decision.Indeterminate;
+    }
 
     let decision: boolean | Decision;
     if (!ruleHandler) {
       decision = Pdp.evaluateCondition(context, rule);
     } else if (ruleHandler) {
       decision = await evaluateHandler(context, ruleHandler, 'RuleHandler', Pip);
-      // TODO: Check result?
     } else {
-      // TODO: Is it true here?
-      // No condition or ruleHandler defined.
       decision = true;
     }
-
     if (Settings.Pdp.debug) log(tag, 'decision:', decision);
-    const effect: Effect | Decision = decision === true ? rule.effect : Decision.NotApplicable;
+
+    let effect: Effect | Decision;
+    if (decision === true) effect = rule.effect;
+    else if (decision === false) effect = Decision.NotApplicable;
+    else decision = Decision.Indeterminate;
+
     if (Settings.Pdp.debug) log(tag, 'effect:', effect);
-
-    // context.obligations = [...context.obligations, {
-    //   id: rule.id,
-    //   element: XACMLElement.Rule,
-    //   obligationIds: rule.obligationIds,
-    // }];
-
-    // context.advice = [...context.advice, {
-    //   id: rule.id,
-    //   element: XACMLElement.Rule,
-    //   adviceIds: rule.adviceIds,
-    // }];
-    // Pdp.addApplicableObligationsAndAdvice(context, effect, rule, 'Rule');
 
     return effect;
   }
 
-  public static retrieveRuleAttributeMap(rule: Rule): any {
-    const tag: string = `${Pdp.tag}.retrieveRuleAttributeMap()`;
+  public static retrieveRuleConditionAttributeMap(rule: Rule): any {
+    const tag: string = `${Pdp.tag}.retrieveRuleConditionAttributeMap()`;
     if (Pdp.ruleConditionAttributeMaps[rule.id]) return Pdp.ruleConditionAttributeMaps[rule.id];
     return Pdp.ruleConditionAttributeMaps[rule.id] = Pdp.createRuleConditionAttributeMap(rule);
   }
@@ -360,24 +347,6 @@ export class Pdp extends Singleton {
     return attributeMap;
   }
 
-  // public static addApplicableObligationsAndAdvice(context: Context, effect: Effect | Decision, element: Rule | Policy | PolicySet, type: string): void {
-  //   const tag: string = `${Pdp.tag}.${element.id}.addApplicableObligationsAndAdvice()`;
-  //   const obligationIds: id[] = element.obligationIds.filter(obligationId => {
-  //     const obligation: Obligation = Prp.retrieveObligationById(obligationId);
-  //     return !obligation.effect || obligation.effect === effect;
-  //   });
-  //   if (Settings.Pdp.debug) log(tag, `${type} #${element.id} obligations to apply:`, obligationIds);
-  //   context.obligationIds = [...context.obligationIds, ...obligationIds];
-
-  //   const adviceIds: id[] = element.obligationIds.filter(adviceId => {
-  //     const advice: Obligation = Prp.retrieveAdviceById(adviceId);
-  //     return !advice.effect || advice.effect === effect;
-  //   });
-  //   if (Settings.Pdp.debug) log(tag, `${type} #${element.id} advice to apply:`, adviceIds);
-  //   context.adviceIds = [...context.adviceIds, ...adviceIds];
-  // }
-
-  // 7.7 Target evaluation
   public static evaluateTarget(context: Context, element: Rule | Policy | PolicySet): boolean | Decision {
     const tag: string = `${Pdp.tag}.(Element - ${element.id}).evaluateTarget()`;
     const anyOf: string[][] = element.target;
@@ -449,8 +418,6 @@ export class Pdp extends Singleton {
     return result;
   }
 }
-
-
 
 
 // The PDP SHALL request the values of attributes in the request context from

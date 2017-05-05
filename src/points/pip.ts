@@ -2,7 +2,7 @@ const merge = require('merge');
 import { Singleton } from '../classes/singleton';
 import { Context, } from '../interfaces';
 import { Settings } from '../settings';
-import { log, retrieveElement, } from '../utils';
+import { log, retrieveElement, listMissingNestedValues, } from '../utils';
 
 export class Pip extends Singleton {
   private static readonly tag: string = 'Pep';
@@ -29,24 +29,26 @@ export class Pip extends Singleton {
   public static _retrieveAttributes = (context: Context, attributeMap: any) =>
     retrieveElement('attributes', '_retrieveAttributes', 'Pip')
 
-  public static async retrieveAttributes(context: Context, attributeMap: any): Promise<void> {
+  public static async retrieveAttributes(context: Context, attributeMap: any): Promise<string[]> {
     const tag: string = `${Pip.tag}.retrieveAttributes()`;
     if (!Pip.bootstrapped) throw Error(`Pip has not been bootstrapped.`);
 
-    // TODO: Check if retrievedAttributes contains the requested attributes from the attributeMap.
-    // If not, probably fail the whole request?
-    // Have to take it up with the Pdp and how the attributes get accessed.
-    // Comparing undefined to something doesn't hurt, but what if it's a nested object?
     const attributes: any = Settings.Pip.retrieveNestedAttributes ?
       await Pip._retrieveAttributes(context, attributeMap) :
       await Pip.retrieveNestedAttributes(context, attributeMap);
 
     merge.recursive(context, attributes);
+
+    const missingAttributes: string[] = listMissingNestedValues(context, attributeMap);
+    return missingAttributes;
   }
 
   private static async retrieveNestedAttributes(context: Context, attributeMap: any): Promise<void> {
+    const tag: string = `${Pip.tag}.retrieveNestedAttributes()`;
     const flatAttributeMap: any = {};
     const nextAttributeMap: any = {};
+
+    if (Settings.Pip.debug) log(tag, 'attributeMap:', attributeMap);
 
     Object.keys(attributeMap).forEach(element => {
       flatAttributeMap[element] = [];
@@ -58,6 +60,9 @@ export class Pip extends Singleton {
         }
       });
     });
+
+    if (Settings.Pip.debug) log(tag, 'flatAttributeMap:', flatAttributeMap);
+    if (Settings.Pip.debug) log(tag, 'nextAttributeMap:', nextAttributeMap);
 
     await Pip._retrieveAttributes(context, flatAttributeMap);
     await Pip.retrieveNestedAttributes(context, nextAttributeMap);

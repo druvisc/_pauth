@@ -32,10 +32,10 @@ Prp._retrievePolicies = async () => [];
 Prp._retrievePolicySets = async () => [];
 
 // Pip
-Pip._retrieveAttributes = async (context: Context, attributeMap: any) => null;
+Pip._retrieveAttributes = async (context: Context, attributeMap: any) => {};
 
 
-const app = module.exports = new koa();
+const app: any = module.exports = new koa();
 
 Promise.all([
   Pep.bootstrap(),

@@ -34,6 +34,28 @@ export const unique = (arr: any[]): any[] => arr.reduce((a, b) => includes(a, b)
 
 /** Object operations */
 export const createMap = (): any => Object.create(null);
+
+export const hasOwnPropertyNested = (object: any, attribute: string): boolean => {
+  const split: string[] = attribute.split('.');
+  let has: boolean = false;
+
+  split.reduce((parent, key) => {
+    if (parent && parent.hasOwnProperty(key)) {
+      has = true;
+      return parent[key];
+    }
+    has = false;
+  }, object);
+
+  return has;
+};
+
+export const listMissingNestedValues = (context: any, requestedAttributeMap: any): string[] =>
+  flatten(Object.keys(requestedAttributeMap).reduce((missing, element) =>
+    requestedAttributeMap[element].reduce((missing, attribute) =>
+      hasOwnPropertyNested(requestedAttributeMap, attribute) ?
+        missing : [...missing, attribute], []), []));
+
 /** Object operations */
 
 
@@ -48,6 +70,8 @@ export const isPresent = (v): boolean => !isNull(v) && !isUndefined(v);
 export const isNumber = (v): boolean => !isNaN(Number(v)) && isFinite(v);
 export const isObject = (v): boolean => typeof v === 'object' && !isArray(v) && !isNull(v);
 export const isPrimitive = (v): boolean => !isObject(v) && !isArray(v) && !isFunction(v);
+//
+export const isId = (v: any): boolean => isNumber(v) || isString(v);
 /** Type checking */
 
 /* XACMLElement operations */
@@ -56,17 +80,16 @@ export const isPolicy = (v: any): boolean => v.hasOwnProperty('rules');
 export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
 
 /** Handler operations */
-
 export async function retrieveElement(element: string | id, handler: string, point: string): Promise<any> {
   const tag: string = `retrieveElement()`;
   throw Error(`${tag}: Cannot retrieve ${element}. '${handler} => ${element}' is not registered with the ${point}.`);
 }
 
 export async function retrieveElementByUrl(url: url): Promise<any> {
-    const tag: string = `retrieveElementByUrl()`;
-    const request: Promise<any> = Request.get(url);
-    return request;
-  }
+  const tag: string = `retrieveElementByUrl()`;
+  const request: Promise<any> = Request.get(url);
+  return request;
+}
 
 export async function evaluateHandler(context: Context, element: RuleHandler | Obligation | Advice, type: string, pip: Pip = Pip): Promise<any> {
   const tag: string = `evaluateHandler()`;
@@ -89,25 +112,3 @@ export async function evaluateHandler(context: Context, element: RuleHandler | O
 }
 /** Handler operations */
 /* XACMLElement operations */
-
-
-// {
-//   "compilerOptions": {
-//     "alwaysStrict": true,
-//     "target": "es5",
-//     "module": "commonjs",
-//     "moduleResolution": "node",
-//     "emitDecoratorMetadata": true,
-//     "experimentalDecorators": true,
-//     "allowSyntheticDefaultImports": true,
-//     "lib": [
-//       "es6"
-//     ]
-//   },
-//   "include": [
-//     "app/**/*.ts"
-//   ],
-//   "exclude": [
-//     "node_modules"
-//   ]
-// }
