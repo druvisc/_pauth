@@ -24,6 +24,7 @@
     "jsonpath": "^0.2.11",
     "koa": "^2.2.0",
     "koa-logger": "^2.0.1",
+    "merge": "^1.2.0",
     "request": "^2.81.0",
     "request-promise": "^4.2.0",
     "valid-url": "^1.0.9"

@@ -8,6 +8,8 @@ export type url = string;
 export type version = string | number;
 export type handler = Function | url;
 
+export type AllOf = string[];
+export type AnyOf = AllOf[];
 
 export interface HandlerResult {
   id: id;
@@ -60,8 +62,8 @@ export interface Rule {
   version?: version;
   effect: Effect;
   description?: string;
-  target: string[][];
-  condition?: string[][];
+  target: AnyOf;
+  condition?: AnyOf;
   handlerId?: id;
   obligationIds?: id[];
   adviceIds?: id[];
@@ -77,7 +79,7 @@ export interface Policy {
   // defaults?: any;
   // combinerParameters: any;
   // ruleCombinerParameters: any;
-  target: string[][];
+  target: AnyOf;
   // variableDefinition: any; // Custom handlers..?
   ruleIds?: id[];
   ruleUrls?: url[];
@@ -94,7 +96,7 @@ export interface PolicySet {
   description?: string;
   // issuer?: string;
   // defaults?: any;
-  target: string[][];
+  target: AnyOf;
   policySetIds?: id[];
   policySetUrls?: url[];
   policySets?: PolicySet[];

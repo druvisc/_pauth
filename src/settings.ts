@@ -14,10 +14,10 @@ class Settings extends Singleton {
     debug: true,
     isGateway: true,
     bias: Bias.Deny,
-    returnReason: false,
-    returnPolicyList: false, // false | 'id' | 'full'
-    returnAdviceResults: false,
-    returnObligationResults: false,
+    returnReason: true,
+    returnPolicyList: true, // false | 'id' | 'full'
+    returnAdviceResults: true,
+    returnObligationResults: true,
   };
 
   public static readonly Pdp = {
@@ -40,6 +40,7 @@ class Settings extends Singleton {
 
   public static readonly Pip = {
     debug: true,
+    retrieveNestedAttributes: true,
   };
 
   public static readonly Language = {

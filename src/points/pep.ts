@@ -1,20 +1,93 @@
 import { Singleton } from '../classes/singleton';
 import { Bootstrap } from '../classes/bootstrap';
 import { Request } from '../classes/request';
-import { Decision, Effect, Bias, XACMLElement, } from '../constants';
-import { Context, Policy, PolicySet, Obligation, Advice, id, HandlerResult, } from '../interfaces';
 import { Settings } from '../settings';
-import { log, isArray, evaluateHandler, unique, isPolicy, isPolicySet, flatten, toFirstUpperCase, } from '../utils';
+import { Decision, Bias, } from '../constants';
+import {
+  id, Context, Policy, PolicySet, Obligation, Advice, HandlerResult,
+} from '../interfaces';
+import {
+  log, retrieveElement, flatten, unique, evaluateHandler, isPolicySet, toFirstUpperCase,
+} from '../utils';
 import { Pdp } from './pdp';
-import { Prp } from './prp';
 import { Pip } from './pip';
 
+// TODO: Move Pip to PDP since it's an extension for it.  The PDP will return the context with all the necessary attributes.
 // TODO: Implement caching in the future.
 export class Pep extends Singleton {
   private static readonly tag: string = 'Pep';
 
+  private static bootstrapped: boolean = false;
+
+  private static readonly adviceMap = {};
+  private static readonly obligationMap = {};
+
+  // Multiple element accessors which MUST be defined by the end user.
+  public static _retrieveObligations = () => retrieveElement('Obligations', '_retrieveObligations', 'Pep');
+  public static _retrieveAdvice = () => retrieveElement('Advice', '_retrieveAdvice', 'Pep');
+
+  private static async retrieveObligations(): Promise<any[]> {
+    const tag: string = `${Pep.tag}.retrieveObligation()`;
+    const request: Promise<any> = Pep._retrieveObligations();
+    return request;
+  }
+
+  private static async retrieveAdvice(): Promise<any[]> {
+    const tag: string = `${Pep.tag}.retrieveAdvice()`;
+    const request: Promise<any> = Pep._retrieveAdvice();
+    return request;
+  }
+  //
+
+  public static getObligationById(id: id): Obligation {
+    const tag: string = `${Pep.tag}.getObligationById()`;
+    const obligation: Obligation = Pep.obligationMap[id];
+    return obligation;
+  }
+
+  public static getAdviceById(id: id): Advice {
+    const tag: string = `${Pep.tag}.getAdviceById()`;
+    const advice: Advice = Pep.adviceMap[id];
+    return advice;
+  }
+
+  public static async bootstrap(): Promise<void> {
+    const tag: string = `${Pep.tag}.bootstrap()`;
+    const errors: Error[] = [];
+    Pep.bootstrapped = false;
+
+    try {
+      (await Pep.retrieveObligations()).forEach(_obligation => {
+        const obligation: Obligation = Bootstrap.getObligation(_obligation, errors);
+        Pep.obligationMap[obligation.id] = obligation;
+      });
+    } catch (err) {
+      errors.push(err);
+    }
+    if (Settings.Prp.debug) log(tag, 'obligationMap:\n', Pep.obligationMap, '\n');
+
+    try {
+      (await Pep.retrieveAdvice()).forEach(_advice => {
+        const advice: Advice = Bootstrap.getAdvice(_advice, errors);
+        Pep.adviceMap[advice.id] = advice;
+      });
+    } catch (err) {
+      errors.push(err);
+    }
+    if (Settings.Prp.debug) log(tag, 'adviceMap:\n', Pep.adviceMap, '\n');
+
+    if (errors.length) throw `\n${errors.join('\n')}`;
+
+    Pep.bootstrapped = true;
+  }
+
   public static async EvaluateAuthorizationRequest(ctx: any, next: Function): Promise<void> {
     const tag: string = `${Pep.tag}.EvaluateAuthorizationRequest()`;
+    if (!Pep.bootstrapped) {
+      if (Settings.Pep.isGateway) ctx.assert(Pep.bootstrapped, 500);
+      else throw Error(`Pep has not been bootstrapped.`);
+    }
+
     let _context: any = !Settings.Pep.isGateway ? ctx : {
       returnReason: Settings.Pep.returnReason,
       returnPolicyList: Settings.Pep.returnPolicyList,
@@ -35,7 +108,7 @@ export class Pep extends Singleton {
       else throw contextErrors;
     }
 
-    await Pdp.evaluateDecisionRequest(context);
+    await Pdp.EvaluateDecisionRequest(context);
     await Pep.evaluateDecisionResponse(ctx, context);
     await next;
   }
@@ -66,34 +139,40 @@ export class Pep extends Singleton {
 
   public static async evaluateDecisionResponse(ctx: any, context: Context): Promise<void> {
     const tag: string = `${Pep.tag}.evaluateDecisionResponse()`;
-    if (Settings.Pep.debug) log(tag, 'context.decision:', context.decision);
+    Pep.evaluatePepBias(context);
+
+    if (context.decision === Decision.Deny) {
+      const reason: string = `Evaluated decision is ${Decision[Decision.Deny]}.`;
+      context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
+    } else {
+      context.obligationResults = await Pep.evaluateObligations(context);
+      if (Settings.Pep.debug) log(tag, 'obligationResults:', context.obligationResults);
+
+      const unfulfilledObligations: HandlerResult[] = context.obligationResults.filter(res => res.err);
+      if (unfulfilledObligations.length) context.decision = Decision.Indeterminate;
+      Pep.evaluatePepBias(context);
+
+      if (context.decision === Decision.Deny) {
+        const reason: string = `Unfulfilled obligations: [${unfulfilledObligations.map(obligation => obligation.id).join(', ')}].`;
+        context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
+      } else {
+        context.obligationResults = await Pep.evaluateAdvice(context);
+        if (Settings.Pep.debug) log(tag, 'adviceResults:', context.obligationResults);
+      }
+    }
+
+    Pep.evaluateAuthorizationResponse(ctx, context);
+  }
+
+  private static evaluatePepBias(context: Context): void {
+    const tag: string = `${Pep.tag}.evaluatePepBias()`;
+    if (Settings.Pep.debug) log(tag, 'context.decision before:', context.decision);
     if (Settings.Pep.bias === Bias.Permit) {
       if (context.decision !== Decision.Deny) context.decision = Decision.Permit;
     } else {
       if (context.decision !== Decision.Permit) context.decision = Decision.Deny;
     }
-    if (Settings.Pep.debug) log(tag, 'context.decision:', context.decision);
-
-    if (context.decision === Decision.Deny) {
-      const reason: string = `Evaluated decision is Deny`;
-      context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
-    } else {
-      const obligationResults: HandlerResult[] = await Pep.evaluateObligations(context);
-      if (Settings.Pep.debug) log(tag, 'obligationResults:', obligationResults);
-      const unfulfilledObligations: HandlerResult[] = obligationResults.filter(res => res.err);
-      if (unfulfilledObligations.length) {
-        context.decision = Decision.Deny;
-        const reason: string = `Unfulfilled obligations: [${unfulfilledObligations.map(obligation => obligation.id).join(' ')}]`;
-        context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
-        context.obligationResults = obligationResults;
-      } else {
-        const adviceResults: HandlerResult[] = await Pep.evaluateAdvice(context);
-        if (Settings.Pep.debug) log(tag, 'adviceResults:', adviceResults);
-        context.adviceResults = adviceResults;
-      }
-    }
-    if (Settings.Pep.debug) log(tag, 'context.decision:', context.decision);
-    Pep.evaluateAuthorizationResponse(ctx, context);
+    if (Settings.Pep.debug) log(tag, 'context.decision after:', context.decision);
   }
 
   public static async evaluateObligations(context: Context): Promise<HandlerResult[]> {
@@ -101,11 +180,11 @@ export class Pep extends Singleton {
     const obligationIds: id[] = unique(Pep.gatherIds(context.policyList.map(container => container.policy), 'obligationIds'));
     const obligationResults: HandlerResult[] = [];
     for (const id of obligationIds) {
-      const obligation: Obligation = Prp.getObligationById(id);
+      const obligation: Obligation = Pep.getObligationById(id);
       const container: HandlerResult = { id: obligation.id };
 
       if (!obligation) {
-        container.err = `Not existing obligation`;
+        container.err = `Not existing obligation.`;
       } else {
         await Pip.retrieveAttributes(context, obligation.attributeMap);
         try {
@@ -115,7 +194,10 @@ export class Pep extends Singleton {
         }
       }
       obligationResults.push(container);
-      if (!container.err) return obligationResults;
+      // It's possible to stop the obligation evaluation if Pep bias is Deny since
+      // Indeterminate will evaluate to a Deny. On the other hand, if the bias is Permit,
+      // it will stay on Permit through Indeterminate even though obligations have failed.
+      if (Settings.Pep.bias === Bias.Deny && container.err) return obligationResults;
     }
     return obligationResults;
   }
@@ -125,11 +207,11 @@ export class Pep extends Singleton {
     const adviceIds: id[] = unique(Pep.gatherIds(context.policyList.map(container => container.policy), 'adviceIds'));
     const adviceResults: HandlerResult[] = [];
     for (const id of adviceIds) {
-      const advice: Advice = Prp.getAdviceById(id);
+      const advice: Advice = Pep.getAdviceById(id);
       const container: HandlerResult = { id: advice.id };
 
       if (!advice) {
-        container.err = `Not existing advice`;
+        container.err = `Not existing advice.`;
       } else {
         await Pip.retrieveAttributes(context, advice.attributeMap);
         try {

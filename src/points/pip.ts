@@ -1,53 +1,65 @@
-import { id, Context, } from '../interfaces';
+const merge = require('merge');
 import { Singleton } from '../classes/singleton';
+import { Context, } from '../interfaces';
 import { Settings } from '../settings';
-import { log, createMap, includes, } from '../utils';
+import { log, retrieveElement, } from '../utils';
 
-// TODO: Perhaps in the future introduce interfaces (HTTP, etc).
 export class Pip extends Singleton {
   private static readonly tag: string = 'Pep';
 
-  // Supposedly add the attribute to the context (do nothing).
-  public static async retrieveAttribute(context: Context, element: string, attribute: string): Promise<any> {
-    const tag: string = `${Pip.tag}.retrieveAttribute()`;
-    const value: any = context[element][attribute];
-    if (Settings.Pip.debug) log(tag, '${element}.${attribute}:', value);
-    return value;
+  private static bootstrapped: boolean = false;
+
+  public static async bootstrap(): Promise<void> {
+    const tag: string = `${Pip.tag}.bootstrap()`;
+    const errors: Error[] = [];
+    Pip.bootstrapped = false;
+
+    try {
+      await Pip._retrieveAttributes({} as Context, {});
+    } catch (err) {
+      errors.push(err);
+    }
+
+    if (errors.length) throw `\n${errors.join('\n')}`;
+
+    Pip.bootstrapped = true;
   }
 
-  public static async retrieveAttributes(context: Context, attributeMap: any): Promise<any> {
-    const tag: string = `${Pip.tag}.retrieveAttribute()`;
+  // Attributes accessor which MUST be defined by the end user.
+  public static _retrieveAttributes = (context: Context, attributeMap: any) =>
+    retrieveElement('attributes', '_retrieveAttributes', 'Pip')
 
-    // // TODO: Write that existing elements can or can not be checked.
-    // Object.keys(attributeMap).forEach(element => {
-    //   const id: id = context[element].id;
-    //   const attributes: string[] = attributeMap[element];
-    //   const existingAttributes: string[] = Object.keys(context[element]);
-    //   const attributesToRetrieve: string[] = attributes.filter(attribute =>
-    //     !includes(existingAttributes, attribute));
-    //   attributesToRetrieve.forEach(attribute => {
-    //     const request: Promise<any> = Promise.resolve({});
-    //     request.then(res => merge.recursive(context[element], res));
-    //   });
-    // });
+  public static async retrieveAttributes(context: Context, attributeMap: any): Promise<void> {
+    const tag: string = `${Pip.tag}.retrieveAttributes()`;
+    if (!Pip.bootstrapped) throw Error(`Pip has not been bootstrapped.`);
 
-    // const mapExample = {
-    //   subject: ['name', 'role'],
-    //   resource: ['author'],
-    // };
+    // TODO: Check if retrievedAttributes contains the requested attributes from the attributeMap.
+    // If not, probably fail the whole request?
+    // Have to take it up with the Pdp and how the attributes get accessed.
+    // Comparing undefined to something doesn't hurt, but what if it's a nested object?
+    const attributes: any = Settings.Pip.retrieveNestedAttributes ?
+      await Pip._retrieveAttributes(context, attributeMap) :
+      await Pip.retrieveNestedAttributes(context, attributeMap);
 
-    // const responseExample = {
-    //   subject: {
-    //     id: 1, // can be omitted? just need to be present in context
-    //     name: 'Trocki',
-    //     role: 'writer',
-    //   },
-    //   resource: {
-    //     id: 1, // can be omitted? just need to be present in context
-    //     author: 'Trocki',
-    //   },
-    // };
+    merge.recursive(context, attributes);
+  }
 
-    // return responseExample;
+  private static async retrieveNestedAttributes(context: Context, attributeMap: any): Promise<void> {
+    const flatAttributeMap: any = {};
+    const nextAttributeMap: any = {};
+
+    Object.keys(attributeMap).forEach(element => {
+      flatAttributeMap[element] = [];
+      attributeMap[element].forEach(attribute => {
+        const split: string[] = attribute.split('.');
+        flatAttributeMap[element].push(split[0]);
+        if (split.length > 1) {
+          nextAttributeMap[split[0]] = split.slice(1).join('');
+        }
+      });
+    });
+
+    await Pip._retrieveAttributes(context, flatAttributeMap);
+    await Pip.retrieveNestedAttributes(context, nextAttributeMap);
   }
 }

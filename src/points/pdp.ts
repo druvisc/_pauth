@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import {
   Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, XACMLElement,
 } from '../constants';
@@ -6,81 +5,72 @@ import {
   id, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice,
 } from '../interfaces';
 import { Singleton } from '../classes/singleton';
+import { Bootstrap } from '../classes/bootstrap';
 import { Language } from '../classes/language';
 import { Request } from '../classes/request';
 import { Settings } from '../settings';
-
 import {
-  log, isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy,
+  log, retrieveElement, isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy,
   isPolicySet,
 } from '../utils';
 import { Prp } from './prp';
 import { Pip } from './pip';
-
-
-// The PDP SHALL request the values of attributes in the request context from
-// the context handler. The context handler MAY also add attributes to the request context
-// without the PDP requesting them. The PDP SHALL reference the attributes as if they were
-// in a physical request context document, but the context handler is responsible for
-// obtaining and supplying the requested values by whatever means it deems appropriate,
-// including by retrieving them from one or more Policy Information Points.
-// The context handler SHALL return the values of attributes that match the attribute
-// designator or attribute selector and form them into a bag of values with the specified
-// data-type. If no attributes from the request context match, then the attribute SHALL
-// be considered missing. If the attribute is missing, then MustBePresent governs whether
-// the attribute designator or attribute selector returns an empty bag or an “Indeterminate”
-// result. If MustBePresent is “False” (default value), then a missing attribute SHALL
-// result in an empty bag. If MustBePresent is “True”, then a missing attribute SHALL result
-// in 3305 “Indeterminate”. This “Indeterminate” result SHALL be handled in accordance with
-// the specification of the 3306 encompassing expressions, rules, policies and policy sets.
-// If the result is “Indeterminate”, then the 3307 AttributeId, DataType and Issuer of
-// the attribute MAY be listed in the authorization decision as 3308 described
-// in Section 7.17. However, a PDP MAY choose not to return such information
-// for security reasons.
-// Regardless of any dynamic modifications of the request context during policy evaluation,
-// the PDP 3311 SHALL behave as if each bag of attribute values is fully populated in the
-// context before it is first tested, 3312 and is thereafter immutable during evaluation.
-// (That is, every subsequent test of that attribute shall use 3313 the same bag of
-// values that was initially tested.)
-
-
-
-
-// If the result is “Indeterminate”, then the AttributeId,
-// DataType and Issuer of the attribute MAY be listed in the authorization decision
-// as described in Section 7.17. However, a PDP MAY choose not to
-// return such information for security 3309 reasons.
-
-
-
-// 7.19.3 Missing attributes
-// The absence of matching attributes in the request context for any of the attribute
-// designators attribute or selectors that are found in the policy will result in an
-// enclosing <AllOf> element to return a value of "Indeterminate",if the designator or
-// selector has the MustBePresent XML attribute set to true, as described in Sections 5.29
-// and 5.30 and may result in a <Decision> element containing the "Indeterminate" value.
-// If, in this case a status code is supplied, then the value
-// "urn:oasis:names:tc:xacml:1.0:status:missing-attribute"
-// SHALL be used, to indicate that more information is needed in order for a definitive decision to be 3605 rendered. In this case, the <Status> element MAY list the names and data-types of any attributes that 3606 are needed by the PDP to refine its decision (see Section 5.58). A PEP MAY resubmit a refined request 3607 context in response to a <Decision> element contents of "Indeterminate" with a status code of 3608
-// "urn:oasis:names:tc:xacml:1.0:status:missing-attribute"
-// by adding attribute values for the attribute names that were listed in the previous
-// response. When the 3610 PDP returns a <Decision> element contents of "Indeterminate",
-//  with a status code of "urn:oasis:names:tc:xacml:1.0:status:missing-attribute",
-// it MUST NOT list the names and data-types of any attribute for which values were supplied
-// in the original 3613 request. Note, this requirement forces the PDP to eventually return
-// an authorization decision of 3614 "Permit", "Deny", or "Indeterminate" with some other
-// status code, in response to successively-refined 3615 requests.
-
 
 // TODO: What happens when it's not enough with the retrieved Pip attributes?
 // TODO: Check what happens with the null id and target.
 // TODO: Allow to add priority policies/handlers, to run before any applicable policies (check IP or whatever).
 // TODO: Remove context where it's not necessary?
 // TODO: Add Indeterminate(DP, D, P)?
+// TODO: Check if ruleHandlers, advice, obligations exist (all ids match up)?
+// TODO: Cache in the future.
+// TODO: Allow to OR obligations and advice depending on their failure?
 export class Pdp extends Singleton {
   private static readonly tag: string = 'Pdp';
 
-  public static async evaluateDecisionRequest(context: Context): Promise<Decision> {
+  private static bootstrapped: boolean = false;
+
+  private static readonly ruleHandlerMap = {};
+  // Cache for rule condition queries.
+  private static readonly ruleConditionAttributeMaps = {};
+
+  // Multiple element accessor which MUST be defined by the end user.
+  public static _retrieveRuleHandlers = () => retrieveElement('RuleHandlers', '_retrieveRuleHandlers', 'Pdp');
+
+  private static async retrieveRuleHandlers(): Promise<any[]> {
+    const tag: string = `${Pdp.tag}.retrieveRuleHandlers()`;
+    const request: Promise<any> = Pdp._retrieveRuleHandlers();
+    return request;
+  }
+  //
+
+  public static getRuleHandlerById(id: id): RuleHandler {
+    const tag: string = `${Pdp.tag}.getRuleHandlerById()`;
+    const ruleHandler: RuleHandler = Pdp.ruleHandlerMap[id];
+    return ruleHandler;
+  }
+
+  public static async bootstrap(): Promise<void> {
+    const tag: string = `${Pdp.tag}.bootstrap()`;
+    const errors: Error[] = [];
+    Pdp.bootstrapped = false;
+
+    try {
+      (await Pdp.retrieveRuleHandlers()).forEach(_ruleHandler => {
+        const ruleHandler: RuleHandler = Bootstrap.getRuleHandler(_ruleHandler, errors);
+        Pdp.ruleHandlerMap[ruleHandler.id] = ruleHandler;
+      });
+    } catch (err) {
+      errors.push(err);
+    }
+
+    if (Settings.Prp.debug) log(tag, '\nruleHandlerMap:', Pdp.ruleHandlerMap);
+
+    if (errors.length) throw `\n${errors.join('\n')}`;
+
+    Pdp.bootstrapped = true;
+  }
+
+  public static async EvaluateDecisionRequest(context: Context): Promise<Decision> {
     const tag: string = `${Pdp.tag}.evaluateDecisionRequest()`;
     if (Settings.Pdp.debug) log(tag, 'context:', context);
     const policies: Policy[] = await Prp.retrieveContextPolicies(context);
@@ -98,7 +88,6 @@ export class Pdp extends Singleton {
     return decision;
   }
 
-  // TODO: Either the combiningAlgorithm or ORing and ANDing could be added to obligations and advice?
   // TODO: Does the combining algorithm has to be passed down?
   public static async combineDecision(context: Context, policy: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Promise<Decision> {
@@ -318,8 +307,8 @@ export class Pdp extends Singleton {
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
-    const ruleHandler: RuleHandler = Prp.getRuleHandlerById(rule.handlerId);
-    const attributeMap: any = ruleHandler && ruleHandler.attributeMap || Prp.retrieveRuleAttributeMap(rule);
+    const ruleHandler: RuleHandler = Pdp.getRuleHandlerById(rule.handlerId);
+    const attributeMap: any = ruleHandler && ruleHandler.attributeMap || Pdp.retrieveRuleAttributeMap(rule);
     if (Settings.Pdp.debug) log(tag, 'attributeMap:', attributeMap);
     await Pip.retrieveAttributes(context, attributeMap);
 
@@ -353,6 +342,22 @@ export class Pdp extends Singleton {
     // Pdp.addApplicableObligationsAndAdvice(context, effect, rule, 'Rule');
 
     return effect;
+  }
+
+  public static retrieveRuleAttributeMap(rule: Rule): any {
+    const tag: string = `${Pdp.tag}.retrieveRuleAttributeMap()`;
+    if (Pdp.ruleConditionAttributeMaps[rule.id]) return Pdp.ruleConditionAttributeMaps[rule.id];
+    return Pdp.ruleConditionAttributeMaps[rule.id] = Pdp.createRuleConditionAttributeMap(rule);
+  }
+
+  private static createRuleConditionAttributeMap(rule: Rule): any {
+    const tag: string = `${Pdp.tag}.createRuleConditionAttributeMap()`;
+    if (Settings.Prp.debug) log(tag, 'rule:', rule);
+    const conditionQueries: string[] = Language.retrieveRuleConditionQueries(rule);
+    if (Settings.Prp.debug) log(tag, 'conditionQueries:', conditionQueries);
+    const attributeMap: any = Language.queriesToAttributeMap(conditionQueries);
+    if (Settings.Prp.debug) log(tag, 'attributeMap:', attributeMap);
+    return attributeMap;
   }
 
   // public static addApplicableObligationsAndAdvice(context: Context, effect: Effect | Decision, element: Rule | Policy | PolicySet, type: string): void {
@@ -444,4 +449,60 @@ export class Pdp extends Singleton {
     return result;
   }
 }
+
+
+
+
+// The PDP SHALL request the values of attributes in the request context from
+// the context handler. The context handler MAY also add attributes to the request context
+// without the PDP requesting them. The PDP SHALL reference the attributes as if they were
+// in a physical request context document, but the context handler is responsible for
+// obtaining and supplying the requested values by whatever means it deems appropriate,
+// including by retrieving them from one or more Policy Information Points.
+// The context handler SHALL return the values of attributes that match the attribute
+// designator or attribute selector and form them into a bag of values with the specified
+// data-type. If no attributes from the request context match, then the attribute SHALL
+// be considered missing. If the attribute is missing, then MustBePresent governs whether
+// the attribute designator or attribute selector returns an empty bag or an “Indeterminate”
+// result. If MustBePresent is “False” (default value), then a missing attribute SHALL
+// result in an empty bag. If MustBePresent is “True”, then a missing attribute SHALL result
+// in 3305 “Indeterminate”. This “Indeterminate” result SHALL be handled in accordance with
+// the specification of the 3306 encompassing expressions, rules, policies and policy sets.
+// If the result is “Indeterminate”, then the 3307 AttributeId, DataType and Issuer of
+// the attribute MAY be listed in the authorization decision as 3308 described
+// in Section 7.17. However, a PDP MAY choose not to return such information
+// for security reasons.
+// Regardless of any dynamic modifications of the request context during policy evaluation,
+// the PDP 3311 SHALL behave as if each bag of attribute values is fully populated in the
+// context before it is first tested, 3312 and is thereafter immutable during evaluation.
+// (That is, every subsequent test of that attribute shall use 3313 the same bag of
+// values that was initially tested.)
+
+
+
+
+// If the result is “Indeterminate”, then the AttributeId,
+// DataType and Issuer of the attribute MAY be listed in the authorization decision
+// as described in Section 7.17. However, a PDP MAY choose not to
+// return such information for security 3309 reasons.
+
+
+
+// 7.19.3 Missing attributes
+// The absence of matching attributes in the request context for any of the attribute
+// designators attribute or selectors that are found in the policy will result in an
+// enclosing <AllOf> element to return a value of "Indeterminate",if the designator or
+// selector has the MustBePresent XML attribute set to true, as described in Sections 5.29
+// and 5.30 and may result in a <Decision> element containing the "Indeterminate" value.
+// If, in this case a status code is supplied, then the value
+// "urn:oasis:names:tc:xacml:1.0:status:missing-attribute"
+// SHALL be used, to indicate that more information is needed in order for a definitive decision to be 3605 rendered. In this case, the <Status> element MAY list the names and data-types of any attributes that 3606 are needed by the PDP to refine its decision (see Section 5.58). A PEP MAY resubmit a refined request 3607 context in response to a <Decision> element contents of "Indeterminate" with a status code of 3608
+// "urn:oasis:names:tc:xacml:1.0:status:missing-attribute"
+// by adding attribute values for the attribute names that were listed in the previous
+// response. When the 3610 PDP returns a <Decision> element contents of "Indeterminate",
+//  with a status code of "urn:oasis:names:tc:xacml:1.0:status:missing-attribute",
+// it MUST NOT list the names and data-types of any attribute for which values were supplied
+// in the original 3613 request. Note, this requirement forces the PDP to eventually return
+// an authorization decision of 3614 "Permit", "Deny", or "Indeterminate" with some other
+// status code, in response to successively-refined 3615 requests.
 

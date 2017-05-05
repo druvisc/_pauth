@@ -1,7 +1,7 @@
 import { Singleton } from './singleton';
 import {
-  id, url, handler, version, Context, Action, Resource, Subject, Environment, Rule, RuleHandler,
-  Policy, PolicySet, Obligation, Advice,
+  id, url, handler, version, Context, Action, Resource, Subject, Environment, Rule,
+  RuleHandler, Policy, PolicySet, Obligation, Advice,
 } from '../interfaces';
 import {
   Effect, Effects, CombiningAlgorithm, CombiningAlgorithms, HttpMethod, HttpMethods,
@@ -14,8 +14,6 @@ import {
 // TODO: Operation shows up in context with the null value.
 export class Bootstrap extends Singleton {
   private static readonly tag: string = 'Bootstrap';
-
-  public static readonly errors: Error[] = [];
 
   private static readonly normalizeString = (v: string): string =>
     isString(v) ? v : null
@@ -32,7 +30,7 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeId = (id: id): id =>
     isNumber(id) || isString(id) ? id : null
 
-  private static readonly getId = (element: Subject | Resource | Rule | Policy | PolicySet | Obligation | Advice | RuleHandler, type: string, errors: Error[] = Bootstrap.errors): id => {
+  private static readonly getId = (element: Subject | Resource | Rule | Policy | PolicySet | Obligation | Advice | RuleHandler, type: string, errors: Error[]): id => {
     const id: id = Bootstrap.normalizeId(element.id);
     if (!id) errors.push(TypeError(`${type} #${id} (useful, I know) has an invalid id (${element.id}). Must either be a number or a string.`));
     return id;
@@ -42,7 +40,7 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeVersion = (version: version): version =>
     isString(version) || isNumber(version) ? version : null
 
-  private static readonly getVersion = (element: Rule | Policy | PolicySet | Obligation | Advice | RuleHandler, type: string, errors: Error[] = Bootstrap.errors): version => {
+  private static readonly getVersion = (element: Rule | Policy | PolicySet | Obligation | Advice | RuleHandler, type: string, errors: Error[]): version => {
     const version: version = Bootstrap.normalizeVersion(element.version);
     return version;
   }
@@ -51,14 +49,14 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeEffect = (effect: Effect): Effect =>
     includes(Effects, effect) ? effect : null
 
-  private static readonly getEffect = (element: Rule | Obligation | Advice, type: string, errors: Error[] = Bootstrap.errors): Effect => {
+  private static readonly getEffect = (element: Rule | Obligation | Advice, type: string, errors: Error[]): Effect => {
     const effect: Effect = Bootstrap.normalizeEffect(element.effect);
     if (!effect) errors.push(TypeError(`${type} #${element.id} has an invalid Effect (${element.effect}). Must be one of: [${Effects.join(', ')}]`));
     return effect;
   }
 
 
-  private static readonly getDescription = (element: Rule | Policy | PolicySet | Obligation | Advice | RuleHandler, type: string, errors: Error[] = Bootstrap.errors): string => {
+  private static readonly getDescription = (element: Rule | Policy | PolicySet | Obligation | Advice | RuleHandler, type: string, errors: Error[]): string => {
     const description: string = Bootstrap.normalizeString(element.description);
     return description;
   }
@@ -77,14 +75,14 @@ export class Bootstrap extends Singleton {
     Bootstrap.getStringTarget(target) || Bootstrap.getStringArrTarget(target) ||
     Bootstrap.getStringArrArrTarget(target)
 
-  public static readonly getTarget = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet, type: string, errors: Error[] = Bootstrap.errors): string[][] => {
+  public static readonly getTarget = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet, type: string, errors: Error[]): string[][] => {
     const target: string[][] = Bootstrap.normalizeTarget(element.target) || Bootstrap.normalizeTarget(parent.target);
     if (!target) errors.push(TypeError(`${type} #${element.id} has an invalid target (${element.target}). Must either be a string, string[] or string[][].`));
     return target;
   }
 
 
-  private static readonly getCondition = (element: Rule, errors: Error[] = Bootstrap.errors): string[][] => {
+  private static readonly getCondition = (element: Rule, errors: Error[]): string[][] => {
     const condition: string[][] = Bootstrap.normalizeTarget(element.condition);
     if (!condition) errors.push(TypeError(`Rule #${element.id} has an invalid condition (${element.condition}). Must either be a string, string[] or a string[][].`));
     return condition;
@@ -94,21 +92,21 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeCombiningAlgorithm = (combiningAlgorithm: CombiningAlgorithm): CombiningAlgorithm =>
     includes(CombiningAlgorithms, combiningAlgorithm) ? combiningAlgorithm : null
 
-  private static readonly getCombiningAlgorithm = (element: Policy | PolicySet, type: string, errors: Error[] = Bootstrap.errors): CombiningAlgorithm => {
+  private static readonly getCombiningAlgorithm = (element: Policy | PolicySet, type: string, errors: Error[]): CombiningAlgorithm => {
     const combiningAlgorithm: CombiningAlgorithm = Bootstrap.normalizeCombiningAlgorithm(element.combiningAlgorithm);
     if (!combiningAlgorithm) errors.push(TypeError(`${type} #${element.id} has an invalid CombiningAlgorithm (${element.combiningAlgorithm}). Must be one of: [${CombiningAlgorithms.join(', ')}]`));
     return combiningAlgorithm;
   }
 
 
-  private static readonly getIds = (element: Rule | Policy | PolicySet | Obligation | Advice, key: string, type: string, errors: Error[] = Bootstrap.errors): id[] => {
+  private static readonly getIds = (element: Rule | Policy | PolicySet | Obligation | Advice, key: string, type: string, errors: Error[]): id[] => {
     const ids: id[] = (element[key] || []).map(Bootstrap.normalizeId);
     if (ids.some(id => !id)) errors.push(TypeError(`${type} ${element.id} has invalid ${element[key]}. Must be a (number | string)[].`));
     return ids;
   }
 
 
-  private static readonly getUrls = (element: Rule | Policy | PolicySet | Obligation | Advice, key: string, type: string, errors: Error[] = Bootstrap.errors): url[] => {
+  private static readonly getUrls = (element: Rule | Policy | PolicySet | Obligation | Advice, key: string, type: string, errors: Error[]): url[] => {
     const urls: url[] = (element[key] || []).map(Bootstrap.normalizeUrl);
     if (urls.some(url => !url)) errors.push(TypeError(`${type} ${element.id} has invalid ${element[key]}. Must be an url[] (pass npm's 'valid-url').`));
     return urls;
@@ -121,7 +119,7 @@ export class Bootstrap extends Singleton {
     return isFunction(handler) || isString(handler) /* isUrl(handler) */ ? handler : null;
   }
 
-  private static readonly getHandler = (element: Obligation | Advice | RuleHandler, type: string, errors: Error[] = Bootstrap.errors): handler => {
+  private static readonly getHandler = (element: Obligation | Advice | RuleHandler, type: string, errors: Error[]): handler => {
     const handler: handler = Bootstrap.normalizeHandler(element.handler);
     if (!handler) errors.push(TypeError(`${type} #${element.id} has an invalid handler (${element.handler}). Must either be a Function or an url (pass npm's 'valid-url').`));
     return handler;
@@ -131,7 +129,7 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeHttpMethod = (httpMethod: HttpMethod): HttpMethod =>
     includes(HttpMethods, httpMethod) ? httpMethod : null
 
-  private static readonly getHttpMethod = (element: Action, type: string, errors: Error[] = Bootstrap.errors): HttpMethod => {
+  private static readonly getHttpMethod = (element: Action, type: string, errors: Error[]): HttpMethod => {
     const httpMethod: HttpMethod = Bootstrap.normalizeHttpMethod(element.method);
     if (!httpMethod) errors.push(TypeError(`${type} has an invalid HttpMethod (${element.method}). Must be one of: [${HttpMethods.join(', ')}].`));
     return httpMethod;
@@ -141,14 +139,14 @@ export class Bootstrap extends Singleton {
   private static readonly normalizeAttributeMap = (attributeMap: any): any =>
     isObject(attributeMap) ? attributeMap : null
 
-  private static readonly getAttributeMap = (element: RuleHandler | Obligation | Advice, type: string, errors: Error[] = Bootstrap.errors): any => {
+  private static readonly getAttributeMap = (element: RuleHandler | Obligation | Advice, type: string, errors: Error[]): any => {
     const attributeMap: any = Bootstrap.normalizeAttributeMap(element.attributeMap);
     if (!attributeMap) errors.push(TypeError(`${type} #${element.id} has an invalid attributeMap (${element.attributeMap}). Must be an object.`));
     return attributeMap;
   }
 
 
-  public static readonly getRuleHandler = (element: RuleHandler, errors: Error[] = Bootstrap.errors): RuleHandler =>
+  public static readonly getRuleHandler = (element: RuleHandler, errors: Error[]): RuleHandler =>
     Object.assign({}, element, {
       id: Bootstrap.getId(element, 'RuleHandler', errors),
       version: Bootstrap.getVersion(element, 'RuleHandlers', errors),
@@ -158,32 +156,32 @@ export class Bootstrap extends Singleton {
     })
 
 
-  public static readonly getAction = (element: Action, errors: Error[] = Bootstrap.errors): Action =>
+  public static readonly getAction = (element: Action, errors: Error[]): Action =>
     Object.assign({}, element, {
       method: Bootstrap.getHttpMethod(element, 'Action', errors),
       operation: Bootstrap.normalizeString(element.operation),
     })
 
 
-  public static readonly getResource = (element: Resource, errors: Error[] = Bootstrap.errors): Resource =>
+  public static readonly getResource = (element: Resource, errors: Error[]): Resource =>
     Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Resource', errors),
     })
 
 
-  public static readonly getSubject = (element: Subject, errors: Error[] = Bootstrap.errors): Subject =>
+  public static readonly getSubject = (element: Subject, errors: Error[]): Subject =>
     Object.assign({}, element, {
       // Unauthenticated user.
       id: element.id ? Bootstrap.getId(element, 'Subject', errors) : null,
     })
 
 
-  public static readonly getEnvironment = (element: Environment, errors: Error[] = Bootstrap.errors): Environment =>
+  public static readonly getEnvironment = (element: Environment, errors: Error[]): Environment =>
     Object.assign({}, element, {
       // Placeholder.
     })
 
-  public static readonly getContext = (element: Context, errors: Error[] = Bootstrap.errors): Context =>
+  public static readonly getContext = (element: Context, errors: Error[]): Context =>
     Object.assign({}, element, {
       returnReason: Bootstrap.normalizeBoolean(element.returnReason),
       returnPolicyList: Bootstrap.normalizeBoolean(element.returnPolicyList),
@@ -199,7 +197,7 @@ export class Bootstrap extends Singleton {
       obligationResults: [],
     })
 
-  public static readonly getRule = (element: Rule, errors: Error[] = Bootstrap.errors): Rule => {
+  public static readonly getRule = (element: Rule, errors: Error[]): Rule => {
     const condition: string[][] = element.handlerId ? null : element.condition ? Bootstrap.getCondition(element, errors) : null;
     const handlerId: id = element.condition ? null : Bootstrap.normalizeId(element.handlerId);
 
@@ -219,7 +217,7 @@ export class Bootstrap extends Singleton {
     });
   }
 
-  public static readonly getPolicy = (element: Policy, errors: Error[] = Bootstrap.errors): Policy =>
+  public static readonly getPolicy = (element: Policy, errors: Error[]): Policy =>
     Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Policy', errors),
       version: Bootstrap.getVersion(element, 'Policy', errors),
@@ -238,9 +236,9 @@ export class Bootstrap extends Singleton {
     })
 
 
-  public static readonly getPolicySet = (element: PolicySet, errors: Error[] = Bootstrap.errors): PolicySet =>
+  public static readonly getPolicySet = (element: PolicySet, errors: Error[]): PolicySet =>
     Object.assign({}, element, {
-      id: Bootstrap.getId(element, 'PolicySet'),
+      id: Bootstrap.getId(element, 'PolicySet', errors),
       version: Bootstrap.getVersion(element, 'PolicySet', errors),
       combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element, 'PolicySet', errors),
       // maxDelegationDepth?: number;
@@ -257,9 +255,9 @@ export class Bootstrap extends Singleton {
     })
 
 
-  public static readonly getObligation = (element: Obligation, errors: Error[] = Bootstrap.errors): Obligation =>
+  public static readonly getObligation = (element: Obligation, errors: Error[]): Obligation =>
     Object.assign({}, element, {
-      id: Bootstrap.getId(element, 'Obligation'),
+      id: Bootstrap.getId(element, 'Obligation', errors),
       version: Bootstrap.getVersion(element, 'Obligation', errors),
       description: Bootstrap.getDescription(element, 'Obligation', errors),
       // Effect upon which the obligation MUST be fulfilled. Allow to be omitted for both Effects.
@@ -269,9 +267,9 @@ export class Bootstrap extends Singleton {
     })
 
 
-  public static readonly getAdvice = (element: Advice, errors: Error[] = Bootstrap.errors): Advice =>
+  public static readonly getAdvice = (element: Advice, errors: Error[]): Advice =>
     Object.assign({}, element, {
-      id: Bootstrap.getId(element, 'Advice'),
+      id: Bootstrap.getId(element, 'Advice', errors),
       version: Bootstrap.getVersion(element, 'Advice', errors),
       description: Bootstrap.getDescription(element, 'Advice', errors),
       // Effect upon which the advice MAY be fulfilled. Allow to be omitted for both Effects.

@@ -1,5 +1,5 @@
 const validUrl = require('valid-url');
-import { url, handler, Context, RuleHandler, Obligation, Advice, } from './interfaces';
+import { id, url, handler, Context, RuleHandler, Obligation, Advice, } from './interfaces';
 import { Request } from './classes/request';
 import { Pip } from './points/pip';
 
@@ -56,8 +56,20 @@ export const isPolicy = (v: any): boolean => v.hasOwnProperty('rules');
 export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
 
 /** Handler operations */
+
+export async function retrieveElement(element: string | id, handler: string, point: string): Promise<any> {
+  const tag: string = `retrieveElement()`;
+  throw Error(`${tag}: Cannot retrieve ${element}. '${handler} => ${element}' is not registered with the ${point}.`);
+}
+
+export async function retrieveElementByUrl(url: url): Promise<any> {
+    const tag: string = `retrieveElementByUrl()`;
+    const request: Promise<any> = Request.get(url);
+    return request;
+  }
+
 export async function evaluateHandler(context: Context, element: RuleHandler | Obligation | Advice, type: string, pip: Pip = Pip): Promise<any> {
-  const tag: string = `evaluateHandler() `;
+  const tag: string = `evaluateHandler()`;
   const debug: boolean = false;
   if (debug) log(tag, 'element:', element);
 

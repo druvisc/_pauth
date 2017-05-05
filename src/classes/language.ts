@@ -12,7 +12,6 @@ const SubscriptEnd: string = ']';
 
 
 // TODO: Perhaps can add extracted queries for expressions as meta data to avoid repetition?
-
 // TODO: Needs testing.
 export class Language extends Singleton {
   private static readonly tag: string = 'Language';

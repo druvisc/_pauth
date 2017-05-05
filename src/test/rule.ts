@@ -99,3 +99,38 @@ describe('Rule', () => {
 
   });
 });
+
+
+
+  // Retrieve attributes
+    // // TODO: Write that existing elements can or can not be checked.
+    // Object.keys(attributeMap).forEach(element => {
+    //   const id: id = context[element].id;
+    //   const attributes: string[] = attributeMap[element];
+    //   const existingAttributes: string[] = Object.keys(context[element]);
+    //   const attributesToRetrieve: string[] = attributes.filter(attribute =>
+    //     !includes(existingAttributes, attribute));
+    //   attributesToRetrieve.forEach(attribute => {
+    //     const request: Promise<any> = Promise.resolve({});
+    //     request.then(res => merge.recursive(context[element], res));
+    //   });
+    // });
+
+    // const mapExample = {
+    //   subject: ['name', 'role'],
+    //   resource: ['author'],
+    // };
+
+    // const responseExample = {
+    //   subject: {
+    //     id: 1, // can be omitted? just need to be present in context
+    //     name: 'Trocki',
+    //     role: 'writer',
+    //   },
+    //   resource: {
+    //     id: 1, // can be omitted? just need to be present in context
+    //     author: 'Trocki',
+    //   },
+    // };
+
+    // return responseExample;
