@@ -59,7 +59,7 @@ export interface Environment { }
 
 export interface Rule {
   id: id;
-  version?: version;
+  version: version;
   effect: Effect;
   description?: string;
   target: AnyOf;
@@ -71,7 +71,7 @@ export interface Rule {
 
 export interface Policy {
   id: id;
-  version?: version;
+  version: version;
   combiningAlgorithm: CombiningAlgorithm;
   // maxDelegationDepth?: number;
   description?: string;
@@ -90,7 +90,7 @@ export interface Policy {
 
 export interface PolicySet {
   id: id;
-  version?: version;
+  version: version;
   combiningAlgorithm: CombiningAlgorithm;
   // maxDelegationDepth?: number;
   description?: string;
@@ -112,7 +112,7 @@ export interface PolicySet {
 
 export interface Obligation {
   id: id;
-  version?: version;
+  version: version;
   description?: string;
   effect?: Effect;
   attributeMap?: any;
@@ -121,7 +121,7 @@ export interface Obligation {
 
 export interface Advice {
   id: id;
-  version?: version;
+  version: version;
   description?: string;
   effect?: Effect;
   attributeMap?: any;
@@ -130,7 +130,7 @@ export interface Advice {
 
 export interface RuleHandler {
   id: id;
-  version?: version;
+  version: version;
   description?: string;
   attributeMap?: any;
   handler: handler;

@@ -5,7 +5,7 @@ import {
 } from '../utils';
 import { Singleton } from './singleton';
 import { Settings } from '../settings';
-import { Context, Rule } from '../interfaces';
+import { Context, Rule, Policy, PolicySet, } from '../interfaces';
 
 const SubscriptStart: string = '[';
 const SubscriptEnd: string = ']';
@@ -101,10 +101,10 @@ export class Language extends Singleton {
     return queries;
   }
 
-  public static retrieveRuleConditionQueries(rule: Rule): string[] {
+  public static retrieveQueriesFrom(element: Rule | Policy | PolicySet, key: string): string[] {
     const tag: string = `${Language.tag}.retrieveRuleConditionQueries()`;
-    const conditions: string[] = flatten(rule.condition);
-    const queries: string[] = unique(flatten(conditions.map(Language.extractQueries)));
+    const expressions: string[] = flatten(element[key]);
+    const queries: string[] = unique(flatten(expressions.map(Language.extractQueries)));
     return queries;
   }
 

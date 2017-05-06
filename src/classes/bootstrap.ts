@@ -42,6 +42,7 @@ export class Bootstrap extends Singleton {
 
   private static readonly getVersion = (element: Rule | Policy | PolicySet | Obligation | Advice | RuleHandler, type: string, errors: Error[]): version => {
     const version: version = Bootstrap.normalizeVersion(element.version);
+    if (!version) errors.push(TypeError(`${type} #${element.id} has an invalid version (${element.version}). Must either be a number or a string.`));
     return version;
   }
 
@@ -198,7 +199,7 @@ export class Bootstrap extends Singleton {
     })
 
   public static readonly getRule = (element: Rule, errors: Error[]): Rule => {
-    const condition: string[][] = element.handlerId ? null : element.condition ? Bootstrap.getCondition(element, errors) : null;
+    const condition: string[][] = element.handlerId ? [[]] : element.condition ? Bootstrap.getCondition(element, errors) : [[]];
     const handlerId: id = element.condition ? null : Bootstrap.normalizeId(element.handlerId);
 
     if (condition && handlerId) {
