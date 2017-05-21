@@ -3,13 +3,15 @@ import { Bootstrap } from '../classes/bootstrap';
 import { Language } from '../classes/language';
 import { Request } from '../classes/request';
 import { Settings } from '../settings';
-import { id, url, Context, Rule, Policy, PolicySet, } from '../interfaces';
+import { id, url, AnyOf, Context, Rule, Policy, PolicySet, } from '../interfaces';
+import { Operation, Operations, } from '../constants';
 import {
-  log, retrieveElement, retrieveElementByUrl, flatten, unique, isPresent
+  log, retrieveElement, retrieveElementByUrl, flatten, unique, isPresent, isPolicy, printArr,
 } from '../utils';
 
 // TODO: Create all points like PEP which can be individual services.
 // TODO: Add a PUT like method to allow modifying policies from the PAP on the fly.
+// TODO: Perhaps loading all elements is too much? Potentially could be huge.
 export class Prp extends Singleton {
   private static readonly tag: string = 'Prp';
 
@@ -192,25 +194,25 @@ export class Prp extends Singleton {
     return Prp.bootstrapped;
   }
 
-  // Evaluate the policy's target, it's rules and rule target elements.
+  // Evaluate the Policy's Target, its Rules and Rule Target elements.
   private static evaluatePolicyRulesAndTargets(element: Policy, errors: Error[], parent: PolicySet = {} as PolicySet): Policy {
     return Object.assign({}, element, {
-      target: Bootstrap.getTarget(element, parent, 'Policy', errors),
+      target: Prp.retrievePolicyTarget(element, errors),
       rules: [
         ...element.ruleIds.map(id => Object.assign({}, Prp.ruleMap[id], {
-          target: Bootstrap.getTarget(Prp.ruleMap[id], element, 'Rule', errors)
+          target: Prp.retrieveRuleTarget(Prp.ruleMap[id], element, errors),
         })),
         ...element.ruleUrls.map(url => Object.assign({}, Prp.externalRuleMap[url], {
-          target: Bootstrap.getTarget(Prp.externalRuleMap[url], element, 'Rule', errors)
+          target: Prp.retrieveRuleTarget(Prp.externalRuleMap[url], element, errors),
         }))
       ]
     });
   }
 
-  // Evaluate the policySet's target, it's policies and policySets and the policy and policySet target elements.
+  // Evaluate the PolicySet's Target, its Policies and PolicySets and the Policy and PolicySet Target elements.
   private static evaluatePolicySetPoliciesAndTargets(element: PolicySet, errors: Error[], parent: PolicySet = {} as PolicySet): PolicySet {
     return Object.assign({}, element, {
-      target: Bootstrap.getTarget(element, parent, 'PolicySet', errors),
+      target: Prp.retrievePolicySetTarget(element, errors),
       policies: [
         ...element.policyIds.map(id => Prp.evaluatePolicyRulesAndTargets(Prp.policyMap[id], errors, element)),
         ...element.policyUrls.map(url => Prp.evaluatePolicyRulesAndTargets(Prp.externalPolicyMap[url], errors, element))
@@ -322,5 +324,40 @@ export class Prp extends Singleton {
       if (Settings.Prp.debug) log(tag, 'elements:', elements);
       return elements;
     });
+  }
+
+  private static retrieveRuleTarget(element: Rule, parent: Policy, errors: Error[]): AnyOf[] {
+    const tag: string = `${Prp.tag}.retrieveRuleTarget()`;
+    const target: AnyOf[] = element.target || parent.target;
+    if (!target) errors.push(TypeError(`Neither Rule #${element.id} or it's enclosing Policy (${parent.id}) has a defined Target.`));
+    return target;
+  }
+
+  private static retrievePolicyTarget(element: Policy, errors: Error[]): AnyOf[] {
+    const tag: string = `${Prp.tag}.retrievePolicyTarget()`;
+    const target: AnyOf[] = element.target || Prp.combineTarget(element, 'Policy', errors);
+    if (!target) errors.push(TypeError(`Policy #${element.id} doesn't have a defined Target.`));
+    return target;
+  }
+
+  private static retrievePolicySetTarget(element: PolicySet, errors: Error[]): AnyOf[] {
+    const tag: string = `${Prp.tag}.retrievePolicySetTarget()`;
+    const target: AnyOf[] = element.target || Prp.combineTarget(element, 'PolicySet', errors);
+    if (!target) errors.push(TypeError(`PolicySet #${element.id} doesn't have a defined Target.`));
+    return target;
+  }
+
+  private static combineTarget(element: Policy | PolicySet, type: string, errors: Error[]): AnyOf[] {
+    const tag: string = `${Prp.tag}.combineTarget()`;
+    const elements: Rule[] | (Policy | PolicySet)[] = isPolicy(element) ?
+      (element as Policy).rules :
+      [...(element as PolicySet).policies, ...(element as PolicySet).policySets];
+    const operation: Operation = element.targetOperation || Settings.Prp.targetOperation;
+    if (!element.targetOperation) errors.push(TypeError(`${type} #${element.id} doesn't have a 'target' and 'targetOperation' defined. Using fallback Prp.targetOperation: ${Operation[Settings.Prp.targetOperation]}.`));
+
+    // TODO: Implement Operation.Intersection, probably improve Union to remove duplication.
+    if (operation === Operation.Union) return flatten((elements as any[]).map(e => e.target));
+    else errors.push(TypeError(`${type} #${element.id} has an invalid targetOperation (${element.targetOperation}). Must be one of: ${printArr(Operations)}`));
+    return null;
   }
 }

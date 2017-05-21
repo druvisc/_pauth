@@ -1,44 +1,45 @@
 import * as jp from 'jsonpath';
 import {
   log, substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique,
-  isObject,
+  isObject, isCharQuoted, getPairIndex,
 } from '../utils';
 import { Singleton } from './singleton';
 import { Settings } from '../settings';
 import { Context, Rule, Policy, PolicySet, } from '../interfaces';
+import { Decision } from '../constants';
 
-const SubscriptStart: string = '[';
-const SubscriptEnd: string = ']';
+const QueryStart: string = '($.';
+const QueryEnd: string = ')';
+const QueryEndPair: string = '(';
 
-
-// TODO: Perhaps can add extracted queries for expressions as meta data to avoid repetition?
 // TODO: Needs testing.
 export class Language extends Singleton {
   private static readonly tag: string = 'Language';
 
-  // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
-  // TODO: Validate query?
-  public static strToExpression(context: Context, str: string): string {
+  public static strToExpression(context: Context, str: string): string | Decision {
     const tag: string = `${Language.tag}.strToExpression()`;
     if (Settings.Language.debug) log(tag, 'str:', str);
     const queries: string[] = Language.extractQueries(str);
+    if (!queries) {
+      if (Settings.Language.error) log(tag, `Invalid expression (${str}) - couldn't extract the queries. Evaluating expression to ${Decision[Decision.Indeterminate]}.`);
+      return Decision.Indeterminate;
+    }
+
     let queryRes: string;
-    queries.forEach(query => {
+    for (const query of queries) {
       if (Settings.Language.debug) log(tag, 'query:', query);
       try {
         queryRes = jp.query(context, query)[0];
       } catch (err) {
-        if (Settings.Language.debug) log(tag, 'Invalid query:', query);
-        return null;
+        if (Settings.Language.error) log(tag, `Invalid query (${query}) - JSONPath threw an error. Evaluating expression to ${Decision[Decision.Indeterminate]}.`);
+        return Decision.Indeterminate;
       }
       // If the query result is a string, it must be represented as a string in the expression.
-      // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
       queryRes = !isString(queryRes) && isPrimitive(queryRes) ? queryRes : `'${queryRes}'`;
       if (Settings.Language.debug) log(tag, 'queryRes:', queryRes);
       str = str.replace(query, queryRes);
-      // TODO: Validate query?
-      query = Language.strToQuery(str);
-    });
+    }
+
     if (Settings.Language.debug) log(tag, 'expression:', str);
     return str;
   }
@@ -46,39 +47,29 @@ export class Language extends Singleton {
   public static extractQueries(str: string): string[] {
     const tag: string = `${Language.tag}.extractQueries()`;
     const queries: string[] = [];
-    let query: string = Language.strToQuery(str);
-    while (query) {
-      if (Settings.Language.debug) log(tag, 'query:', query);
+
+    let queryStart: number = str.indexOf(QueryStart, 0);
+    let queryEnd: number;
+    let query: string;
+    while (queryStart !== -1) {
+      if (isCharQuoted(str, queryStart)) {
+        queryEnd = queryStart;
+      } else {
+        if (Settings.Language.debug) log(tag, 'queryStart:', queryStart);
+        queryEnd = getPairIndex(QueryEndPair, QueryEnd, str, queryStart + 1);
+        if (Settings.Language.debug) log(tag, 'queryEnd:', queryEnd);
+        if (queryEnd === -1) return null;
+
+        query = str.substring(queryStart, queryEnd);
+        if (Settings.Language.debug) log(tag, 'query:', query);
+        queries.push(query);
+      }
+
+      queryStart = str.indexOf(QueryStart, queryEnd + 1);
       queries.push(query);
-      str = str.replace(query, '');
-      query = Language.strToQuery(str);
     }
     if (Settings.Language.debug) log(tag, 'queries:', queries);
     return queries;
-  }
-
-  public static strToQuery(str: string): string {
-    const tag: string = `${Language.tag}.strToQuery()`;
-    const start: number = str.indexOf('$');
-    if (Settings.Language.debug) log(tag, 'start:', start);
-    if (start === -1) return null;
-
-    let end: number = str.indexOf(' ', start);
-    end = end !== -1 ? end : str.length;
-    if (Settings.Language.debug) log(tag, 'end:', end);
-    const substr: string = str.substring(start, end);
-    if (Settings.Language.debug) log(tag, 'substr:', substr);
-    const subscriptStartCount: number = substrCount(str, SubscriptStart);
-    if (Settings.Language.debug) log(tag, 'subscriptStartCount:', subscriptStartCount);
-
-    let query: string = substr;
-
-    if (subscriptStartCount > 0) {
-      const subscriptEnd: number = indexOfNth(str, SubscriptEnd, subscriptStartCount);
-      query = str.slice(start, subscriptEnd);
-    }
-
-    return query;
   }
 
   // Context attributes, queries just because the JSONPath's $ is prepended.

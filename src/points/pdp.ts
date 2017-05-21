@@ -3,6 +3,7 @@ import {
 } from '../constants';
 import {
   id, version, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice,
+  CustomCombiningAlgorithm, AnyOf, AllOf,
 } from '../interfaces';
 import { Singleton } from '../classes/singleton';
 import { Bootstrap } from '../classes/bootstrap';
@@ -10,8 +11,8 @@ import { Language } from '../classes/language';
 import { Request } from '../classes/request';
 import { Settings } from '../settings';
 import {
-  log, retrieveElement, isPresent, isBoolean, isFunction, isString, includes, evaluateHandler, isRule, isPolicy,
-  isPolicySet,
+  log, retrieveElement, isPresent, isBoolean, isFunction, isString, includes,
+  evaluateHandler, isRule, isPolicy, isPolicySet, printArr,
 } from '../utils';
 import { Prp } from './prp';
 import { Pip } from './pip';
@@ -20,6 +21,10 @@ export interface AttributeMapContainer {
   version: version;
   attributeMap: any;
 }
+
+// TODO:!!!  THE TARGET CAN BE SPECIFIED EMTPY.. APLIES TO EVERYTHING!!!
+// TODO:!!! Just implement a fuckin Target result enum - Match, No match, Indeterminate !!!.
+
 
 // TODO: What happens when it's not enough with the retrieved Pip attributes?
 // TODO: Check what happens with the null id and target (wrapped set?).
@@ -34,6 +39,8 @@ export class Pdp extends Singleton {
   private static bootstrapped: boolean = false;
 
   private static readonly ruleHandlerMap = {};
+  private static readonly customCombiningAlgorithmMap = {};
+
   // TODO: Implement attributeMap caching together with the element version, getters are version checking.
   private static readonly ruleTargetAttributeMaps = {};
   private static readonly ruleConditionAttributeMaps = {};
@@ -41,12 +48,19 @@ export class Pdp extends Singleton {
   private static readonly policyTargetAttributeMaps = {};
   private static readonly policySetTargetAttributeMaps = {};
 
-  // Multiple element accessor which MUST be defined by the end user.
+  // Multiple element accessors which MUST be defined by the end user.
   public static _retrieveRuleHandlers = () => retrieveElement('RuleHandlers', '_retrieveRuleHandlers', 'Pdp');
+  public static _retrieveCustomCombiningAlgorithms = () => retrieveElement('CustomCombiningAlgorithms', '_retrieveCustomCombiningAlgorithms', 'Pdp');
 
   private static async retrieveRuleHandlers(): Promise<any[]> {
     const tag: string = `${Pdp.tag}.retrieveRuleHandlers()`;
     const request: Promise<any> = Pdp._retrieveRuleHandlers();
+    return request;
+  }
+
+  private static async retrieveCustomCombiningAlgorithms(): Promise<any[]> {
+    const tag: string = `${Pdp.tag}.retrieveCustomCombiningAlgorithms()`;
+    const request: Promise<any> = Pdp._retrieveCustomCombiningAlgorithms();
     return request;
   }
   //
@@ -55,6 +69,12 @@ export class Pdp extends Singleton {
     const tag: string = `${Pdp.tag}.getRuleHandlerById()`;
     const ruleHandler: RuleHandler = Pdp.ruleHandlerMap[id];
     return ruleHandler;
+  }
+
+  public static getCustomCombiningAlgorithmById(id: id): CustomCombiningAlgorithm {
+    const tag: string = `${Pdp.tag}.getCustomCombiningAlgorithmById()`;
+    const customCombiningAlgorithm: CustomCombiningAlgorithm = Pdp.customCombiningAlgorithmMap[id];
+    return customCombiningAlgorithm;
   }
 
   public static async bootstrap(): Promise<void> {
@@ -156,7 +176,7 @@ export class Pdp extends Singleton {
 
       const missingTargetAttributes: string[] = await Pip.retrieveAttributes(context, targetAttributeMap);
       if (missingTargetAttributes.length) {
-        if (Settings.Pdp.debug) log(tag, `Evaluating ${isPolicy(policy) ? 'Policy' : 'PolicySet'} #${policy.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: [${missingTargetAttributes.join(', ')}]`);
+        if (Settings.Pdp.debug) log(tag, `Evaluating ${isPolicy(policy) ? 'Policy' : 'PolicySet'} #${policy.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: ${printArr(missingTargetAttributes)}.`);
         return Decision.Indeterminate;
       }
 
@@ -167,10 +187,7 @@ export class Pdp extends Singleton {
     }
 
     let decision: Decision;
-    if (!includes(CombiningAlgorithms, combiningAlgorithm)) {
-      decision = Settings.Pdp.bias;
-      if (Settings.Pdp.debug) log(tag, `Invalid combiningAlgorithm ${combiningAlgorithm}\ Using the Pdp bias (${Decision[decision]}.`);
-    } else {
+    if (includes(CombiningAlgorithms, combiningAlgorithm)) {
       if (combiningAlgorithm === CombiningAlgorithm.DenyOverrides) decision = await Pdp.denyOverrides(context, policy);
       if (combiningAlgorithm === CombiningAlgorithm.PermitOverrides) decision = await Pdp.permitOverrides(context, policy);
       if (combiningAlgorithm === CombiningAlgorithm.DenyUnlessPermit) decision = await Pdp.denyUnlessPermit(context, policy);
@@ -178,6 +195,14 @@ export class Pdp extends Singleton {
       if (combiningAlgorithm === CombiningAlgorithm.PermitOverrides) decision = await Pdp.permitOverrides(context, policy);
       if (combiningAlgorithm === CombiningAlgorithm.FirstApplicable) decision = await Pdp.firstApplicable(context, policy);
       if (combiningAlgorithm === CombiningAlgorithm.OnlyOneApplicable) decision = await Pdp.onlyOneApplicable(context, policy);
+    } else {
+      const customCombiningAlgorithm: CustomCombiningAlgorithm = Pdp.getCustomCombiningAlgorithmById(combiningAlgorithm);
+      if (customCombiningAlgorithm) {
+        customCombiningAlgorithm.handler(context, policy, Pdp.combineDecision, Pdp.evaluateRule);
+      } else {
+        if (Settings.Pdp.debug) log(tag, `Policy or PolicySet #${policy.id} contains an invalid combiningAlgorithm (${combiningAlgorithm}). Evaluating to ${Decision[Decision.Indeterminate]}.`);
+        return Decision.Indeterminate;
+      }
     }
 
     if (policy.id) {
@@ -331,27 +356,28 @@ export class Pdp extends Singleton {
     let indeterminate: boolean = false;
     let result: Decision = Decision.NotApplicable;
 
-    if (policySet) {
-      for (const policy of [...policySet.policies, ...policySet.policySets]) {
-        if (indeterminate) return Decision.Indeterminate;
-        const decision: Decision = await Pdp.combineDecision(context, policy);
-        indeterminate = decision === Decision.Indeterminate ||
-          // The current decision AND a previous decision is something other
-          // than NotApplicable (return Indeterminate).
-          decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
-        result = decision;
-      }
-    } else {
-      for (const rule of policy.rules) {
-        if (indeterminate) return Decision.Indeterminate;
-        const decision: Decision = await Pdp.evaluateRule(context, rule);
-        indeterminate = decision === Decision.Indeterminate ||
-          // The current decision AND a previous decision is something other
-          // than NotApplicable (return Indeterminate).
-          decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
-        result = decision;
-      }
+    // Usable only on PolicySet. Allow to use on rules (in Policy)?
+    // if (policySet) {
+    for (const policy of [...policySet.policies, ...policySet.policySets]) {
+      if (indeterminate) return Decision.Indeterminate;
+      const decision: Decision = await Pdp.combineDecision(context, policy);
+      indeterminate = decision === Decision.Indeterminate ||
+        // The current decision AND a previous decision is something other
+        // than NotApplicable (return Indeterminate).
+        decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
+      result = decision;
     }
+    // } else {
+    //   for (const rule of policy.rules) {
+    //     if (indeterminate) return Decision.Indeterminate;
+    //     const decision: Decision = await Pdp.evaluateRule(context, rule);
+    //     indeterminate = decision === Decision.Indeterminate ||
+    //       // The current decision AND a previous decision is something other
+    //       // than NotApplicable (return Indeterminate).
+    //       decision !== Decision.NotApplicable && result !== Decision.NotApplicable;
+    //     result = decision;
+    //   }
+    // }
 
     if (indeterminate) return Decision.Indeterminate;
     return result;
@@ -365,7 +391,7 @@ export class Pdp extends Singleton {
     if (Settings.Pdp.debug) log(tag, 'targetAttributeMap:', targetAttributeMap);
     const missingTargetAttributes: string[] = await Pip.retrieveAttributes(context, targetAttributeMap);
     if (missingTargetAttributes.length) {
-      if (Settings.Pdp.debug) log(tag, `Evaluating Rule #${rule.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: [${missingTargetAttributes.join(', ')}]`);
+      if (Settings.Pdp.debug) log(tag, `Evaluating Rule #${rule.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: ${printArr(missingTargetAttributes)}.`);
       return Decision.Indeterminate;
     }
 
@@ -387,7 +413,7 @@ export class Pdp extends Singleton {
     if (Settings.Pdp.debug) log(tag, 'conditionAttributeMap:', conditionAttributeMap);
     const missingConditionAttributes: string[] = await Pip.retrieveAttributes(context, conditionAttributeMap);
     if (missingConditionAttributes.length) {
-      if (Settings.Pdp.debug) log(tag, `Evaluating Rule #${rule.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: [${missingConditionAttributes.join(', ')}]`);
+      if (Settings.Pdp.debug) log(tag, `Evaluating Rule #${rule.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: ${printArr(missingConditionAttributes)}.`);
       return Decision.Indeterminate;
     }
 
@@ -409,72 +435,81 @@ export class Pdp extends Singleton {
 
   public static evaluateTarget(context: Context, element: Rule | Policy | PolicySet): boolean | Decision {
     const tag: string = `${Pdp.tag}.(Element - ${element.id}).evaluateTarget()`;
-    const anyOf: string[][] = element.target;
-    const result: boolean | Decision = Pdp.evaluateAnyOf(context, anyOf);
-    return result;
+    const anyOfArr: AnyOf[] = element.target;
+    if (Settings.Pdp.debug) log(tag, 'target:', anyOfArr);
+    const targetValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, anyOfArr);
+    if (Settings.Pdp.debug) log(tag, 'targetValue:', targetValue);
+    return targetValue;
   }
 
-  public static evaluateCondition(context: Context, rule: Rule, ): boolean | Decision {
-    const tag: string = `${Pdp.tag}.(Rule - ${rule.id}).evaluateCondition()`;
-    const anyOf: string[][] = rule.condition;
-    if (Settings.Pdp.debug) log(tag, 'rule.condition:', anyOf);
-    const result: boolean | Decision = Pdp.evaluateAnyOf(context, anyOf);
-    return result;
+  public static evaluateCondition(context: Context, element: Rule): boolean | Decision {
+    const tag: string = `${Pdp.tag}.(Rule - ${element.id}).evaluateCondition()`;
+    const anyOfArr: AnyOf[] = element.condition;
+    if (Settings.Pdp.debug) log(tag, 'condition:', anyOfArr);
+    const conditionValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, anyOfArr);
+    if (Settings.Pdp.debug) log(tag, 'conditionValue:', conditionValue);
+    return conditionValue;
   }
 
-  public static evaluateAnyOf(context: Context, anyOf: string[][]): boolean | Decision {
+  public static evaluateAnyOfArr(context: Context, anyOfArr: AnyOf[]): boolean | Decision {
+    const tag: string = `${Pdp.tag}.evaluateAnyOfArr()`;
+    if (Settings.Pdp.debug) log(tag, 'anyOfArr:', anyOfArr);
+    for (const anyOf of anyOfArr) {
+      if (Settings.Pdp.debug) log(tag, 'anyOf:', anyOf);
+      const anyOfValue: boolean | Decision = Pdp.evaluateAnyOf(context, anyOf);
+      if (Settings.Pdp.debug) log(tag, 'anyOfValue:', anyOfValue);
+      if (!anyOfValue || anyOfValue === Decision.Indeterminate) return anyOfValue;
+    }
+    return true;
+  }
+
+  public static evaluateAnyOf(context: Context, anyOf: AnyOf): boolean | Decision {
     const tag: string = `${Pdp.tag}.evaluateAnyOf()`;
-    const results: (boolean | Decision)[] = anyOf.map(allOf => Pdp.evaluateAllOf(context, allOf));
-    if (Settings.Pdp.debug) log(tag, 'results:', results);
-
-    const falseResults: (boolean | Decision)[] = results.filter(r => r === false);
-    if (Settings.Pdp.debug) log(tag, 'falseResults:', falseResults);
-    if (results.length === falseResults.length) return false;
-
-    const result: boolean | Decision = results.reduce((result, v) => {
-      if (result === true || v === true) return true;
-      return v;
-    }, Decision.Indeterminate);
-    if (Settings.Pdp.debug) log(tag, 'result:', result);
-
-    return result;
+    if (Settings.Pdp.debug) log(tag, 'anyOf:', anyOf);
+    for (const allOf of anyOf) {
+      if (Settings.Pdp.debug) log(tag, 'allOf:', allOf);
+      const allOfValue: boolean | Decision = Pdp.evaluateAllOf(context, allOf);
+      if (Settings.Pdp.debug) log(tag, 'allOfValue:', allOfValue);
+      if (!allOfValue || allOfValue === Decision.Indeterminate) return allOfValue;
+    }
+    return true;
   }
 
-  public static evaluateAllOf(context: Context, allOf: string[]): boolean | Decision {
-    return allOf.reduce((result, expression) => {
-      // If one of the expressions failed for some reason, return Decision.Indeterminate.
-      if (result === Decision.Indeterminate) return Decision.Indeterminate;
-      // If one of the expressions evaluated to false, the target is not a match.
-      if (result === false) return false;
-      // Otherwise return the evaluated expression (true).
-      return Pdp.expressionToDecision(context, expression);
-    }, true as boolean | Decision);
+  public static evaluateAllOf(context: Context, allOf: AllOf): boolean | Decision {
+    const tag: string = `${Pdp.tag}.evaluateAllOf()`;
+    if (Settings.Pdp.debug) log(tag, 'allOf:', allOf);
+    for (const expression of allOf) {
+      if (Settings.Pdp.debug) log(tag, 'expression:', expression);
+      const expressionValue: boolean | Decision = Pdp.expressionToDecision(context, expression);
+      if (Settings.Pdp.debug) log(tag, 'expressionValue:', expressionValue);
+      if (!expressionValue || expressionValue === Decision.Indeterminate) return expressionValue;
+    }
+    return true;
   }
 
-  // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
   public static expressionToDecision(context: Context, str: string): boolean | Decision {
     const tag: string = `${Pdp.tag}.expressionToDecision()`;
     const expression: string = Language.strToExpression(context, str);
-    if (Settings.Pdp.debug) log(tag, 'expression:', expression);
-    if (!expression) {
-      if (Settings.Pdp.debug) log(tag, 'String evaluated to an invalid expression.');
+    if (expression === Decision.Indeterminate) {
+      if (Settings.Pdp.error) log(tag, `Could not evaluate the expression (${str}). Evaluating expression value to ${Decision[Decision.Indeterminate]}.`);
       return Decision.Indeterminate;
     }
 
-    let result: boolean;
+    if (Settings.Pdp.debug) log(tag, 'expression:', expression);
+    let value: boolean;
     try {
-      result = eval(expression);
-      if (!isBoolean(result)) {
+      value = eval(expression);
+      if (!isBoolean(value)) {
         // Only allow the expression to evaluate to true or false.
-        if (Settings.Pdp.debug) log(tag, 'Truncated expression result from:', result);
-        result = !!result;
-        if (Settings.Pdp.debug) log(tag, 'To boolean value:', result);
+        if (Settings.Pdp.debug) log(tag, 'Truncated expression value from:', value);
+        value = !!value;
+        if (Settings.Pdp.debug) log(tag, 'To boolean value:', value);
       }
     } catch (err) {
-      if (Settings.Pdp.debug) log(tag, 'Could not execute the expression.');
+      if (Settings.Pdp.error) log(tag, `Could not execute the expression (${expression}). Evaluating expression value to ${Decision[Decision.Indeterminate]}.`);
       return Decision.Indeterminate;
     }
-    if (Settings.Pdp.debug) log(tag, 'result:', result);
-    return result;
+    if (Settings.Pdp.debug) log(tag, 'value:', value);
+    return value;
   }
 }

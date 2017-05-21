@@ -1,16 +1,17 @@
 import { Singleton } from './singleton';
 import {
-  id, url, handler, version, Context, Action, Resource, Subject, Environment, Rule,
+  id, url, handler, version, AnyOf, Context, Action, Resource, Subject, Environment, Rule,
   RuleHandler, Policy, PolicySet, Obligation, Advice,
 } from '../interfaces';
 import {
   Effect, Effects, CombiningAlgorithm, CombiningAlgorithms, HttpMethod, HttpMethods,
 } from '../constants';
 import {
-  log, isString, isUrl, isNumber, isArray, isFunction, isObject, includes,
+  log, isString, isUrl, isNumber, isArray, isFunction, isObject, includes, printArr,
+  anyOf,
 } from '../utils';
 
-// TODO: Get rid of npm's valid-url.
+// TODO: Get rid of npm's valid-url. // Why was this?
 // TODO: Operation shows up in context with the null value.
 export class Bootstrap extends Singleton {
   private static readonly tag: string = 'Bootstrap';
@@ -52,7 +53,7 @@ export class Bootstrap extends Singleton {
 
   private static readonly getEffect = (element: Rule | Obligation | Advice, type: string, errors: Error[]): Effect => {
     const effect: Effect = Bootstrap.normalizeEffect(element.effect);
-    if (!effect) errors.push(TypeError(`${type} #${element.id} has an invalid Effect (${element.effect}). Must be one of: [${Effects.join(', ')}]`));
+    if (!effect) errors.push(TypeError(`${type} #${element.id} has an invalid Effect (${element.effect}). Must be one of: ${printArr(Effects)}.`));
     return effect;
   }
 
@@ -62,30 +63,37 @@ export class Bootstrap extends Singleton {
     return description;
   }
 
+  // string -> AnyOf[] | null
+  private static readonly stringToAnyOfArr = (target: any): AnyOf[] =>
+    isString(target) ? [[[target]]] : null
 
-  private static readonly getStringTarget = (target: any): string[][] =>
-    isString(target) ? [[target]] : null
+  // AllOf -> AnyOf[] | null
+  private static readonly allOfToAnyOffArr = (target: any): AnyOf[] =>
+    isArray(target) && target.every(isString) ? [[target]] : null
 
-  private static readonly getStringArrTarget = (target: any): string[][] =>
-    isArray(target) && target.every(isString) ? [target] : null
+  // AnyOf -> AnyOf[] | null
+  private static readonly anyOfToAnyOffArr = (target: any): AnyOf[] =>
+    isArray(target) && target.every(Bootstrap.allOfToAnyOffArr) ? [target] : null
 
-  private static readonly getStringArrArrTarget = (target: any): string[][] =>
-    isArray(target) && target.every(Bootstrap.getStringArrTarget) ? target : null
+  // AnyOf[] -> AnyOf[] | null
+  private static readonly anyOfArrToAnyOffArr = (target: any): AnyOf[] =>
+    isArray(target) && target.every(Bootstrap.anyOfToAnyOffArr) ? target : null
 
-  private static readonly normalizeTarget = (target: any): string[][] =>
-    Bootstrap.getStringTarget(target) || Bootstrap.getStringArrTarget(target) ||
-    Bootstrap.getStringArrArrTarget(target)
+  // any -> AnyOf[] | null
+  private static readonly normalizeAnyOffArr = (target: any): AnyOf[] =>
+    Bootstrap.anyOfArrToAnyOffArr(target) || Bootstrap.anyOfToAnyOffArr(target) ||
+    Bootstrap.allOfToAnyOffArr(target) || Bootstrap.stringToAnyOfArr(target)
 
-  public static readonly getTarget = (element: Rule | Policy | PolicySet, parent: Policy | PolicySet = {} as Policy | PolicySet, type: string, errors: Error[]): string[][] => {
-    const target: string[][] = Bootstrap.normalizeTarget(element.target) || Bootstrap.normalizeTarget(parent.target);
-    if (!target) errors.push(TypeError(`${type} #${element.id} has an invalid target (${element.target}). Must either be a string, string[] or string[][].`));
+  public static readonly getTarget = (element: Rule | Policy | PolicySet, type: string, errors: Error[]): AnyOf[] => {
+    const target: AnyOf[] = Bootstrap.normalizeAnyOffArr(element.target);
+    if (!target) errors.push(TypeError(`${type} #${element.id} has an invalid target (${element.target}). Must either be a string, AllOf, AnyOf or AnyOf[].`));
     return target;
   }
 
 
-  private static readonly getCondition = (element: Rule, errors: Error[]): string[][] => {
-    const condition: string[][] = Bootstrap.normalizeTarget(element.condition);
-    if (!condition) errors.push(TypeError(`Rule #${element.id} has an invalid condition (${element.condition}). Must either be a string, string[] or a string[][].`));
+  private static readonly getCondition = (element: Rule, errors: Error[]): AnyOf[] => {
+    const condition: AnyOf[] = Bootstrap.normalizeAnyOffArr(element.condition);
+    if (!condition) errors.push(TypeError(`Rule #${element.id} has an invalid condition (${element.condition}). Must either be a string, AllOf, AnyOf or AnyOf[]`));
     return condition;
   }
 
@@ -95,7 +103,8 @@ export class Bootstrap extends Singleton {
 
   private static readonly getCombiningAlgorithm = (element: Policy | PolicySet, type: string, errors: Error[]): CombiningAlgorithm => {
     const combiningAlgorithm: CombiningAlgorithm = Bootstrap.normalizeCombiningAlgorithm(element.combiningAlgorithm);
-    if (!combiningAlgorithm) errors.push(TypeError(`${type} #${element.id} has an invalid CombiningAlgorithm (${element.combiningAlgorithm}). Must be one of: [${CombiningAlgorithms.join(', ')}]`));
+    if (!combiningAlgorithm) errors.push(TypeError(`${type} #${element.id} has an invalid CombiningAlgorithm (${element.combiningAlgorithm}). Must be one of: ${printArr(CombiningAlgorithms)}.`));
+    if (combiningAlgorithm === CombiningAlgorithm.OnlyOneApplicable && type !== 'PolicySet') errors.push(TypeError(`${type} #${element.id} has an invalid CombiningAlgorithm (${element.combiningAlgorithm}). ${CombiningAlgorithm[CombiningAlgorithm.OnlyOneApplicable]} is only applicable to a PolicySet.`));
     return combiningAlgorithm;
   }
 
@@ -132,7 +141,7 @@ export class Bootstrap extends Singleton {
 
   private static readonly getHttpMethod = (element: Action, type: string, errors: Error[]): HttpMethod => {
     const httpMethod: HttpMethod = Bootstrap.normalizeHttpMethod(element.method);
-    if (!httpMethod) errors.push(TypeError(`${type} has an invalid HttpMethod (${element.method}). Must be one of: [${HttpMethods.join(', ')}].`));
+    if (!httpMethod) errors.push(TypeError(`${type} has an invalid HttpMethod (${element.method}). Must be one of: ${printArr(HttpMethods)}.`));
     return httpMethod;
   }
 
@@ -199,7 +208,8 @@ export class Bootstrap extends Singleton {
     })
 
   public static readonly getRule = (element: Rule, errors: Error[]): Rule => {
-    const condition: string[][] = element.handlerId ? [[]] : element.condition ? Bootstrap.getCondition(element, errors) : [[]];
+    // TODO: Uhm
+    const condition: AnyOf[] = element.handlerId ? anyOf() : element.condition ? Bootstrap.getCondition(element, errors) : anyOf();
     const handlerId: id = element.condition ? null : Bootstrap.normalizeId(element.handlerId);
 
     if (condition && handlerId) {
@@ -211,6 +221,7 @@ export class Bootstrap extends Singleton {
       version: Bootstrap.getVersion(element, 'Rule', errors),
       effect: Bootstrap.getEffect(element, 'Rule', errors),
       description: Bootstrap.getDescription(element, 'Rule', errors),
+      target: !element.target ? null : Bootstrap.getTarget(element, 'Rule', errors),
       condition,
       handlerId,
       obligationIds: Bootstrap.getIds(element, 'obligationIds', 'Rule', errors),
@@ -225,6 +236,7 @@ export class Bootstrap extends Singleton {
       combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element, 'Policy', errors),
       // maxDelegationDepth?: number;
       description: Bootstrap.getDescription(element, 'Policy', errors),
+      target: !element.target ? null : Bootstrap.getTarget(element, 'Policy', errors),
       // issuer?: string;
       // defaults?: any;
       // combinerParameters: any;
@@ -244,6 +256,7 @@ export class Bootstrap extends Singleton {
       combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element, 'PolicySet', errors),
       // maxDelegationDepth?: number;
       description: Bootstrap.getDescription(element, 'PolicySet', errors),
+      target: !element.target ? null : Bootstrap.getTarget(element, 'PolicySet', errors),
       // issuer?: string;
       // defaults?: any;
       policySetIds: Bootstrap.getIds(element, 'policySetIds', 'PolicySet', errors),
@@ -259,7 +272,7 @@ export class Bootstrap extends Singleton {
   public static readonly getObligation = (element: Obligation, errors: Error[]): Obligation =>
     Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Obligation', errors),
-      version: Bootstrap.getVersion(element, 'Obligation', errors),
+      version: !element.version ? null : Bootstrap.getVersion(element, 'Obligation', errors),
       description: Bootstrap.getDescription(element, 'Obligation', errors),
       // Effect upon which the obligation MUST be fulfilled. Allow to be omitted for both Effects.
       effect: !element.effect ? null : Bootstrap.getEffect(element, 'Obligation', errors),
@@ -271,7 +284,7 @@ export class Bootstrap extends Singleton {
   public static readonly getAdvice = (element: Advice, errors: Error[]): Advice =>
     Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Advice', errors),
-      version: Bootstrap.getVersion(element, 'Advice', errors),
+      version: !element.version ? null : Bootstrap.getVersion(element, 'Advice', errors),
       description: Bootstrap.getDescription(element, 'Advice', errors),
       // Effect upon which the advice MAY be fulfilled. Allow to be omitted for both Effects.
       effect: !element.effect ? null : Bootstrap.getEffect(element, 'Advice', errors),

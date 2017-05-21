@@ -1,6 +1,6 @@
 import {
   Effect, AuthorizationDecision, Decision, CombiningAlgorithm, StatusCode,
-  HttpMethod, Environment, XACMLElement,
+  HttpMethod, Environment, XACMLElement, Operation,
 } from './constants';
 
 export type id = string | number;
@@ -16,7 +16,6 @@ export interface HandlerResult {
   res?: string;
   err?: string;
 }
-
 
 export interface Context {
   returnReason: boolean;
@@ -37,7 +36,6 @@ export interface Context {
   adviceResults: HandlerResult[];
   obligationResults: HandlerResult[];
 }
-
 
 export interface Action {
   method: HttpMethod;
@@ -62,8 +60,8 @@ export interface Rule {
   version: version;
   effect: Effect;
   description?: string;
-  target: AnyOf;
-  condition?: AnyOf;
+  target?: AnyOf[];
+  condition?: AnyOf[];
   handlerId?: id;
   obligationIds?: id[];
   adviceIds?: id[];
@@ -79,7 +77,8 @@ export interface Policy {
   // defaults?: any;
   // combinerParameters: any;
   // ruleCombinerParameters: any;
-  target: AnyOf;
+  target?: AnyOf[];
+  targetOperation?: Operation;
   // variableDefinition: any; // Custom handlers..?
   ruleIds?: id[];
   ruleUrls?: url[];
@@ -96,7 +95,8 @@ export interface PolicySet {
   description?: string;
   // issuer?: string;
   // defaults?: any;
-  target: AnyOf;
+  target?: AnyOf[];
+  targetOperation?: Operation;
   policySetIds?: id[];
   policySetUrls?: url[];
   policySets?: PolicySet[];
@@ -112,7 +112,7 @@ export interface PolicySet {
 
 export interface Obligation {
   id: id;
-  version: version;
+  version?: version;
   description?: string;
   effect?: Effect;
   attributeMap?: any;
@@ -121,7 +121,7 @@ export interface Obligation {
 
 export interface Advice {
   id: id;
-  version: version;
+  version?: version;
   description?: string;
   effect?: Effect;
   attributeMap?: any;
@@ -130,14 +130,18 @@ export interface Advice {
 
 export interface RuleHandler {
   id: id;
-  version: version;
+  version?: version;
   description?: string;
   attributeMap?: any;
   handler: handler;
 }
 
-
-
+export interface CustomCombiningAlgorithm {
+  id: id;
+  version?: version;
+  description?: string;
+  handler: Function;
+}
 
 
 
