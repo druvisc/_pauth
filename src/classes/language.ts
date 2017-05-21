@@ -20,6 +20,8 @@ export class Language extends Singleton {
     const tag: string = `${Language.tag}.strToExpression()`;
     if (Settings.Language.debug) log(tag, 'str:', str);
     const queries: string[] = Language.extractQueries(str);
+    if (Settings.Language.debug) log(tag, 'queries:', queries);
+
     if (!queries) {
       if (Settings.Language.error) log(tag, `Invalid expression (${str}) - couldn't extract the queries. Evaluating expression to ${Decision[Decision.Indeterminate]}.`);
       return Decision.Indeterminate;
@@ -47,7 +49,6 @@ export class Language extends Singleton {
   public static extractQueries(str: string): string[] {
     const tag: string = `${Language.tag}.extractQueries()`;
     const queries: string[] = [];
-
     let queryStart: number = str.indexOf(QueryStart, 0);
     let queryEnd: number;
     let query: string;
@@ -64,11 +65,8 @@ export class Language extends Singleton {
         if (Settings.Language.debug) log(tag, 'query:', query);
         queries.push(query);
       }
-
       queryStart = str.indexOf(QueryStart, queryEnd + 1);
-      queries.push(query);
     }
-    if (Settings.Language.debug) log(tag, 'queries:', queries);
     return queries;
   }
 

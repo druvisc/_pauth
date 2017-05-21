@@ -50,6 +50,7 @@ export const getPairIndex = (start: string, end: string, str: string, position: 
   }
   return -1;
 };
+
 /** String operations */
 
 
