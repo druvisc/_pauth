@@ -6,11 +6,13 @@ class Settings extends Singleton {
   // public static readonly development: boolean = Settings.environment !== Environment.Production;
 
   public static readonly Pap = {
+    error: true,
     debug: true,
   };
 
   public static readonly Pep = {
     port: 3000,
+    error: true,
     debug: true,
     isGateway: true,
     bias: Bias.Deny,
@@ -21,6 +23,7 @@ class Settings extends Singleton {
   };
 
   public static readonly Pdp = {
+    error: true,
     debug: true,
     combiningAlgorithm: CombiningAlgorithm.DenyUnlessPermit as CombiningAlgorithm,
     // The fallback decision when:
@@ -33,7 +36,9 @@ class Settings extends Singleton {
   };
 
   public static readonly Prp = {
+    error: true,
     debug: true,
+    targetOperation: Operation.Union,
     cacheIdElements: true,
     cacheUrlElements: true,
   };
@@ -44,10 +49,7 @@ class Settings extends Singleton {
   };
 
   public static readonly Language = {
-    debug: true,
-  };
-
-  public static readonly Validate = {
+    error: true,
     debug: true,
   };
 }

@@ -1,5 +1,5 @@
 const validUrl = require('valid-url');
-import { id, url, handler, Context, RuleHandler, Obligation, Advice, } from './interfaces';
+import { id, url, handler, AnyOf, Context, RuleHandler, Obligation, Advice, } from './interfaces';
 import { Request } from './classes/request';
 import { Pip } from './points/pip';
 
@@ -22,6 +22,22 @@ export const toFirstUpperCase = (v: string): string => `${v[0].toUpperCase()}${v
 
 export const includesIgnoreCase = (arr: string[], v: string): boolean =>
   arr.some(arrV => ignoreCaseEqual(arrV, v));
+
+export const isCharQuoted = (str: string, index: number): boolean => {
+  const quoteTypes: string[] = ["'", '"', '`'];
+  const quoteStack = [];
+
+  for (let i = 0; i < str.length - 1; i++) {
+    if (i === index) return quoteStack.length > 0;
+
+    if (includes(quoteTypes, str[i])) {
+      if (quoteStack[quoteStack.length - 1] === str[i]) quoteStack.pop();
+      else quoteStack.push(str[i]);
+    }
+  }
+
+  return false;
+};
 /** String operations */
 
 
@@ -29,6 +45,7 @@ export const includesIgnoreCase = (arr: string[], v: string): boolean =>
 export const includes = (arr: any[], v: any): boolean => arr.indexOf(v) !== -1;
 export const flatten = (arr: any[][]): any[] => [].concat.apply([], arr);
 export const unique = (arr: any[]): any[] => arr.reduce((a, b) => includes(a, b) ? a : [...a, b], []);
+export const printArr = (arr: any[]) => `[${arr.join(', ')}]`;
 /** Array operations */
 
 
@@ -76,9 +93,10 @@ export const isId = (v: any): boolean => isNumber(v) || isString(v);
 
 /* XACMLElement operations */
 export const isRule = (v: any): boolean => v.hasOwnProperty('effect');
-export const isPolicy = (v: any): boolean => v.hasOwnProperty('rules');
-export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
-
+// Don't have to have them defined.
+// export const isPolicy = (v: any): boolean => v.hasOwnProperty('rules');
+// export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
+export const anyOf = (): AnyOf[] => [[[]]];
 /** Handler operations */
 export async function retrieveElement(element: string | id, handler: string, point: string): Promise<any> {
   const tag: string = `retrieveElement()`;

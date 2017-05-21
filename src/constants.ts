@@ -12,9 +12,15 @@ export const HttpMethods: string[] = ['Get', 'Head', 'Post', 'Put', 'Delete', 'T
 export const HttpMethod = StrEnum(HttpMethods);
 export type HttpMethod = keyof typeof HttpMethod;
 
-export const Operations: string[] = ['Intersection', 'Union'];
+// TODO: Implement Intersection for it to be used in Prp.combineTarget.
+export const Operations: string[] = [/*'Intersection',*/ 'Union'];
 export const Operation = StrEnum(Operations);
 export type Operation = keyof typeof Operation;
+
+
+// export const TargetValues: string[] = ['Match', 'NoMatch'];
+// export const Target = StrEnum(TargetValues);
+// export type Target = keyof typeof Target;
 
 
 // The result of evaluating a rule, policy or policy set.
@@ -81,12 +87,9 @@ export type Effect = keyof typeof Effect;
 
 
 
-
-// TODO:
 export const Environments: string[] = ['Development', 'Production'];
 export const Environment = StrEnum(Environments);
 export type Environment = keyof typeof Environment;
-
 
 
 // 7.10 Extended Indeterminate

@@ -2,101 +2,264 @@ import 'mocha';
 import * as jp from 'jsonpath';
 import { expect } from 'chai';
 import { Pdp } from '../points/pdp';
-import { Effect, Decision, HttpMethod, } from '../constants';
-import { Context, Rule } from '../interfaces';
-import { log } from '../utils';
+import { Effect, Decision, HttpMethod, CombiningAlgorithm } from '../constants';
+import { Context, Rule, Policy, Obligation, } from '../interfaces';
+import { log, isCharQuoted, indexOfNth } from '../utils';
+
+require('util').inspect.defaultOptions.depth = null;
 
 describe('Rule', () => {
   it('subject should be tested', () => {
-    const ofAge: number = 18;
+    //     const ofAge: number = 18;
 
-    const Role = {
-      User: 'user',
-      Unauthenticated: 'unauthenticated',
-    };
+    const email: any = {};
 
-    const Controller = {
-      Products: 'products'
-    };
+    // const obligation: Obligation = {
+    //   id: 'email',
+    //   effect: Effect.Permit,
+    //   attributeMap: {
+    //     resource: ['email'],
+    //     subject: ['id'],
+    //   },
+    //   handler: (context, self, pip) =>
+    //     email.send({
+    //       text: `Your medical record has been accessed by: ${context.subject.id}`
+    //     })
+    // };
 
-    const Products = {
-      Alcohol: 'alcohol',
-    };
+    // const rule: Rule = {
+    //   id: 3,
+    //   version: '1.0',
+    //   description: 'A physician may write any medical element in a record 1393 [h38] for which he or she is the designated primary care 1394 [h39] physician, provided an email is sent to the patient',
+    //   effect: Effect.Permit,
+    //   target: [
+    //     [
+    //       [
+    //         '$subject.role === "physician"'
+    //       ]
+    //     ]
+    //   ],
+    //   condition: [
+    //     [
+    //       [
+    //         '$subject.physicianId === $resource.record.primaryCarePhysician.registrationID'
+    //       ]
+    //     ]
+    //   ]
+    // };
 
-    const Alcohol = {
-      SpecialOffers: 'specialoffers',
-    };
+    // const policy: Policy = {
+    //   id: 3,
+    //   version: '1.0',
+    //   combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+    //   description: 'Policy for any medical record in the http://www.med.example.com/schemas/record.xsd namespace.',
+    //   // Todo, what is an empty target? [[[]]] or undefined?
+    //   target: [
+    //     [
+    //       [
+    //         "$resource.targetNamespace === 'urn:example:med:schemas:record'"
+    //       ]
+    //     ],
+    //     [
+    //       [
+    //         "'$resource.contentSelector === 'record.medical'"
+    //       ]
+    //     ],
+    //     [
+    //       [
+    //         "$action.actionId === 'write'"
+    //       ]
+    //     ]
+    //   ],
+    //   ruleIds: [3],
+    //   obligationIds: ['email'],
+    // };
 
-    // TODO: The PDP could be made more sophisticated,
-    // so it knows which policies to drop sooner,
-    // i.e, same targets or conditions didn't apply.
 
-    const targetAuthenticatedAlcohol: string[][] = [
-      [
-        `$.subject.id`,
-        `$.resource.route === '/${Controller.Products}/${Products.Alcohol}'`,
-        `$.subject.role !== '${Role.Unauthenticated}'`
-      ]
-    ];
+    // const policy1: any = {
+    //   id: 3,
+    //   version: '1.0',
+    //   combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+    //   description: 'Policy for any medical record in the http://www.med.example.com/schemas/record.xsd namespace.',
+    //   // Todo, what is an empty target? [[[]]] or undefined?
+    //   target: `$resource.targetNamespace == 'urn:example:med:schemas:record' && $resource.contentSelector == 'record.medical' && $action.actionId == 'write'`,
+    //   ruleIds: [3],
+    //   obligationIds: ['email'],
+    // };
 
-    const ofAgeRuleAuthenticated: Rule = {
-      id: 1,
-      version: '0.0.1',
-      effect: Effect.Permit,
-      target: targetAuthenticatedAlcohol,
-      condition: [
+    const policy2: any = {
+      id: 3,
+      version: '1.0',
+      combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+      description: 'Policy for any medical record in the http://www.med.example.com/schemas/record.xsd namespace.',
+      // Todo, what is an empty target? [[[]]] or undefined?
+      target: [
         [
-          `$.subject.age >= ${ofAge}`
+          [
+            `$resource.targetNamespace == 'urn:example:med:schemas:record'`,
+            `$resource.contentSelector == 'record.medical'`,
+            `$action.actionId == 'write'`
+          ]
         ]
       ],
+      ruleIds: [3],
+      obligationIds: ['email'],
     };
 
-    const action = {
-      method: `${HttpMethod.Get.toUpperCase()}`,
-    };
 
-    const resource = {
-      route: `/${Controller.Products}/${Products.Alcohol}`,
-    };
+    // const policy1: any = {
+    //   id: 3,
+    //   version: '1.0',
+    //   combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+    //   description: 'Policy for any medical record in the http://www.med.example.com/schemas/record.xsd namespace.',
+    //   // Todo, what is an empty target? [[[]]] or undefined?
+    //   target: `$resource.targetNamespace == 'urn:example:med:schemas:record' && $resource.contentSelector == 'record.medical' && $action.actionId == 'write'`,
+    //   ruleIds: [3],
+    //   obligationIds: ['email'],
+    // };
 
-    const subject = {
-      role: `${Role.User}`,
-      age: 16,
-    };
 
-    const context = {
-      action,
-      resource,
-      subject,
-    };
 
-    let decision: Effect | Decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
-    expect(decision).to.be.equal(Decision.NotApplicable);
 
-    subject.age = 21;
 
-    decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
-    expect(decision).to.be.equal(Effect.Permit);
 
-    log(JSON.stringify(ofAgeRuleAuthenticated));
+    //     const Role = {
+    //       User: 'user',
+    //       Unauthenticated: 'unauthenticated',
+    //     };
 
-    const ruleHandlerExample: RuleHandler = async (context: Context, rule: Rule, Pip: Pip): Promise<boolean | Decision> => {
-      const subject: Subject = context.subject;
-      const resource: Resource = context.resource;
-      const attributeMap = {
-        subject: ['role'],
-        resource: ['author'],
-      };
+    //     const Controller = {
+    //       Products: 'products'
+    //     };
 
-      await Pip.retrieveAttributes(context, attributeMap);
+    //     const Products = {
+    //       Alcohol: 'alcohol',
+    //     };
 
-      if (subject.role === 'editor' || resource.author === subject.id) {
-        return true;
-      }
+    //     const Alcohol = {
+    //       SpecialOffers: 'specialoffers',
+    //     };
 
-      return false;
-    };
+    //     // TODO: The PDP could be made more sophisticated,
+    //     // so it knows which policies to drop sooner,
+    //     // i.e, same targets or conditions didn't apply.
 
+    //     const targetAuthenticatedAlcohol: string[][] = [
+    //       [
+    //         `$.subject.id`,
+    //         `$.resource.route === '/${Controller.Products}/${Products.Alcohol}'`,
+    //         `$.subject.role !== '${Role.Unauthenticated}'`
+    //       ]
+    //     ];
+
+    //     const ofAgeRuleAuthenticated: Rule = {
+    //       id: 1,
+    //       version: '0.0.1',
+    //       effect: Effect.Permit,
+    //       target: targetAuthenticatedAlcohol,
+    //       condition: [
+    //         [
+    //           `$.subject.age >= ${ofAge}`
+    //         ]
+    //       ],
+    //     };
+
+    //     const action = {
+    //       method: `${HttpMethod.Get.toUpperCase()}`,
+    //     };
+
+    //     const resource = {
+    //       route: `/${Controller.Products}/${Products.Alcohol}`,
+    //     };
+
+    //     const subject = {
+    //       role: `${Role.User}`,
+    //       age: 16,
+    //     };
+
+    //     const context = {
+    //       action,
+    //       resource,
+    //       subject,
+    //     };
+
+    //     let decision: Effect | Decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
+    //     expect(decision).to.be.equal(Decision.NotApplicable);
+
+    //     subject.age = 21;
+
+    //     decision = Pdp.evaluateRule(ofAgeRuleAuthenticated, context);
+    //     expect(decision).to.be.equal(Effect.Permit);
+
+    //     log(JSON.stringify(ofAgeRuleAuthenticated));
+
+    //     const ruleHandlerExample: RuleHandler = async (context: Context, rule: Rule, Pip: Pip): Promise<boolean | Decision> => {
+    //       const subject: Subject = context.subject;
+    //       const resource: Resource = context.resource;
+    //       const attributeMap = {
+    //         subject: ['role'],
+    //         resource: ['author'],
+    //       };
+
+    //       await Pip.retrieveAttributes(context, attributeMap);
+
+    //       if (subject.role === 'editor' || resource.author === subject.id) {
+    //         return true;
+    //       }
+
+    //       return false;
+    //     };
+
+    // const rule: Rule = {
+    //   id: 'SimpleRule1',
+    //   version: '1.0',
+    //   description: 'Any subject with an e-mail name in the med.example.com domain can perform any action on any resource.',
+    //   effect: Effect.Permit,
+    //   target: [
+    //     [
+    //       [
+    //         '$subject.id.includes("med.example.com")'
+    //       ]
+    //     ]
+    //   ]
+    // };
+
+    // const policy: Policy = {
+    //   id: 'SimplePolicy1',
+    //   version: '1.0',
+    //   combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+    //   description: 'Medi Corp access control policy.',
+    //   // Todo, what is an empty target? [[[]]] or undefined?
+    //   // target:
+    //   ruleIds: ['SimpleRule1']
+    // };
+
+
+
+
+
+
+    // console.log(policy);
+
+    // const test1: string = "$.resource.currency == '$'";
+    // console.log(isCharQuoted(test1, test1.length - 1));
+    // console.log(isCharQuoted(test1, 0));
+
+
+    // const test2: string = "$.resource.currency == `$`";
+    // console.log(isCharQuoted(test2, test2.length - 1));
+    // console.log(isCharQuoted(test2, 0));
+
+    // const test3: string = '$.resource.currency == "$"';
+    // console.log(isCharQuoted(test3, test3.length - 1));
+    // console.log(isCharQuoted(test3, 0));
+
+
+    const test4: string = "'$' === $.resource.currency && '$' === '$'";
+    console.log(isCharQuoted(test4, indexOfNth(test4, '$', 1)));
+    console.log(isCharQuoted(test4, indexOfNth(test4, '$', 2)));
+    console.log(isCharQuoted(test4, indexOfNth(test4, '$', 3)));
+    console.log(isCharQuoted(test4, indexOfNth(test4, '$', 4)));
   });
 });
 

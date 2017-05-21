@@ -7,7 +7,7 @@ import {
   id, Context, Policy, PolicySet, Obligation, Advice, HandlerResult,
 } from '../interfaces';
 import {
-  log, retrieveElement, flatten, unique, evaluateHandler, isPolicySet, toFirstUpperCase,
+  log, retrieveElement, flatten, unique, evaluateHandler, isPolicySet, toFirstUpperCase, printArr,
 } from '../utils';
 import { Pdp } from './pdp';
 import { Pip } from './pip';
@@ -154,7 +154,7 @@ export class Pep extends Singleton {
       Pep.evaluatePepBias(context);
 
       if (context.decision === Decision.Deny) {
-        const reason: string = `Unfulfilled obligations: [${unfulfilledObligations.map(obligation => obligation.id).join(', ')}].`;
+        const reason: string = `Unfulfilled obligations: ${printArr(unfulfilledObligations.map(obligation => obligation.id))}.`;
         context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
       } else {
         context.obligationResults = await Pep.evaluateAdvice(context);
@@ -186,10 +186,11 @@ export class Pep extends Singleton {
 
       if (!obligation) {
         container.err = `Obligation #${obligation.id} is not registered with the Pep.`;
+        obligationResults.push(container);
       } else if (!obligation.effect || obligation.effect === context.decision) {
         const missingAttributes: string[] = await Pip.retrieveAttributes(context, obligation.attributeMap);
         if (missingAttributes.length) {
-          container.err = `Couldn't retrieve these attributes to evaluate Obligation #${obligation.id}: [${missingAttributes.join(', ')}]`;
+          container.err = `Couldn't retrieve these attributes to evaluate Obligation #${obligation.id}: ${printArr(missingAttributes)}]`;
         } else {
           try {
             container.res = await evaluateHandler(context, obligation, 'Obligation', Pip);
@@ -198,12 +199,13 @@ export class Pep extends Singleton {
             // TODO: Not entirely sure about this. If Pep bias is Deny, then a failing
             // obligation means a denied authorization decision request, so suddenly
             // obligations with potentially the opposite effect will be fulfilled?
+            // Should all the previous obligations be redone?
             context.decision = Decision.Indeterminate;
             Pep.evaluatePepBias(context);
           }
         }
+        obligationResults.push(container);
       }
-      obligationResults.push(container);
     }
     return obligationResults;
   }
@@ -218,10 +220,11 @@ export class Pep extends Singleton {
 
       if (!advice) {
         container.err = `Advice #${advice.id} is not registered with the Pep.`;
+        adviceResults.push(container);
       } else if (!advice.effect || advice.effect === context.decision) {
         const missingAttributes: string[] = await Pip.retrieveAttributes(context, advice.attributeMap);
         if (missingAttributes.length) {
-          container.err = `Couldn't retrieve these attributes to evaluate Advice #${advice.id}: [${missingAttributes.join(', ')}]`;
+          container.err = `Couldn't retrieve these attributes to evaluate Advice #${advice.id}: ${printArr(missingAttributes)}.`;
         } else {
           try {
             container.res = await evaluateHandler(context, advice, 'advice', Pip);
@@ -229,8 +232,8 @@ export class Pep extends Singleton {
             container.err = err;
           }
         }
+        adviceResults.push(container);
       }
-      adviceResults.push(container);
     }
     return adviceResults;
   }

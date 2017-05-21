@@ -1,44 +1,40 @@
 import * as jp from 'jsonpath';
 import {
   log, substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique,
-  isObject,
+  isObject, isCharQuoted,
 } from '../utils';
 import { Singleton } from './singleton';
 import { Settings } from '../settings';
 import { Context, Rule, Policy, PolicySet, } from '../interfaces';
+import { Decision } from '../constants';
 
 const SubscriptStart: string = '[';
 const SubscriptEnd: string = ']';
 
-
-// TODO: Perhaps can add extracted queries for expressions as meta data to avoid repetition?
 // TODO: Needs testing.
 export class Language extends Singleton {
   private static readonly tag: string = 'Language';
 
-  // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
-  // TODO: Validate query?
-  public static strToExpression(context: Context, str: string): string {
+  public static strToExpression(context: Context, str: string): string | Decision {
     const tag: string = `${Language.tag}.strToExpression()`;
     if (Settings.Language.debug) log(tag, 'str:', str);
     const queries: string[] = Language.extractQueries(str);
     let queryRes: string;
-    queries.forEach(query => {
+
+    for (const query of queries) {
       if (Settings.Language.debug) log(tag, 'query:', query);
       try {
         queryRes = jp.query(context, query)[0];
       } catch (err) {
-        if (Settings.Language.debug) log(tag, 'Invalid query:', query);
-        return null;
+        if (Settings.Language.error) log(tag, `Invalid query ${query}. Evaluating expression to ${Decision[Decision.Indeterminate]}.`);
+        return Decision.Indeterminate;
       }
       // If the query result is a string, it must be represented as a string in the expression.
-      // TODO: Allow to define equal ('===') operator for non-primitive types for expression validation?
       queryRes = !isString(queryRes) && isPrimitive(queryRes) ? queryRes : `'${queryRes}'`;
       if (Settings.Language.debug) log(tag, 'queryRes:', queryRes);
       str = str.replace(query, queryRes);
-      // TODO: Validate query?
-      query = Language.strToQuery(str);
-    });
+    }
+
     if (Settings.Language.debug) log(tag, 'expression:', str);
     return str;
   }
@@ -51,17 +47,22 @@ export class Language extends Singleton {
       if (Settings.Language.debug) log(tag, 'query:', query);
       queries.push(query);
       str = str.replace(query, '');
+      // TODO: Validate query?
       query = Language.strToQuery(str);
     }
     if (Settings.Language.debug) log(tag, 'queries:', queries);
     return queries;
   }
 
+    // TODO: Add valid queryables.
+
+  // TODO: Fix, allow to end query with a ) too if it started with a (.
   public static strToQuery(str: string): string {
     const tag: string = `${Language.tag}.strToQuery()`;
     const start: number = str.indexOf('$');
     if (Settings.Language.debug) log(tag, 'start:', start);
     if (start === -1) return null;
+
 
     let end: number = str.indexOf(' ', start);
     end = end !== -1 ? end : str.length;
