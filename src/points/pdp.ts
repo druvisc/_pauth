@@ -12,7 +12,7 @@ import { Request } from '../classes/request';
 import { Settings } from '../settings';
 import {
   log, retrieveElement, isPresent, isBoolean, isFunction, isString, includes,
-  evaluateHandler, isRule, isPolicy, isPolicySet, printArr,
+  evaluateHandler, isRule, isPolicy, isPolicySet, printArr, flatten, unique,
 } from '../utils';
 import { Prp } from './prp';
 import { Pip } from './pip';
@@ -98,55 +98,41 @@ export class Pdp extends Singleton {
     Pdp.bootstrapped = true;
   }
 
-
+  // TODO: Act on errors.
   public static retrieveTargetAttributeMap(element: Rule | Policy | PolicySet, attributeMaps): any {
     const tag: string = `${Pdp.tag}.retrieveTargetAttributeMap()`;
     const container: AttributeMapContainer = attributeMaps[element.id];
     if (container && container.version === element.version) return container.attributeMap;
+
+    const targetQueryErrors: Error[] = [];
     attributeMaps[element.id] = {
       version: element.version,
-      attributeMap: Pdp.createTargetAttributeMap(element),
+      attributeMap: Language.anyOfArrToFlatAttributeMap(element.target, targetQueryErrors),
     };
     return attributeMaps[element.id].attributeMap;
   }
 
-  public static retrieveRuleConditionAttributeMap(rule: Rule): any {
+  // TODO: Act on errors.
+  public static retrieveRuleConditionAttributeMap(element: Rule): any {
     const tag: string = `${Pdp.tag}.retrieveRuleConditionAttributeMap()`;
-    const container: AttributeMapContainer = Pdp.ruleConditionAttributeMaps[rule.id];
-    if (container && container.version === rule.version) return container.attributeMap;
-    Pdp.ruleConditionAttributeMaps[rule.id] = {
-      version: rule.version,
-      attributeMap: Pdp.createConditionAttributeMap(rule),
+    const container: AttributeMapContainer = Pdp.ruleConditionAttributeMaps[element.id];
+    if (container && container.version === element.version) return container.attributeMap;
+
+    const conditionQueryErrors: Error[] = [];
+    Pdp.ruleConditionAttributeMaps[element.id] = {
+      version: element.version,
+      attributeMap: Language.anyOfArrToFlatAttributeMap(element.condition, conditionQueryErrors),
     };
-    return Pdp.ruleConditionAttributeMaps[rule.id].attributeMap;
+    return Pdp.ruleConditionAttributeMaps[element.id].attributeMap;
   }
 
-  private static createTargetAttributeMap(element: Rule | Policy | PolicySet): any {
-    const tag: string = `${Pdp.tag}.createTargetAttributeMap()`;
-    if (Settings.Prp.debug) log(tag, 'element:', element);
-    const targetQueries: string[] = Language.retrieveQueriesFrom(element, 'target');
-    if (Settings.Prp.debug) log(tag, 'targetQueries:', targetQueries);
-    const attributeMap: any = Language.queriesToAttributeMap(targetQueries);
-    if (Settings.Prp.debug) log(tag, 'attributeMap:', attributeMap);
-    return attributeMap;
-  }
-
-  private static createConditionAttributeMap(rule: Rule): any {
-    const tag: string = `${Pdp.tag}.createConditionAttributeMap()`;
-    if (Settings.Prp.debug) log(tag, 'rule:', rule);
-    const conditionQueries: string[] = Language.retrieveQueriesFrom(rule, 'condition');
-    if (Settings.Prp.debug) log(tag, 'conditionQueries:', conditionQueries);
-    const attributeMap: any = Language.queriesToAttributeMap(conditionQueries);
-    if (Settings.Prp.debug) log(tag, 'attributeMap:', attributeMap);
-    return attributeMap;
-  }
-
-
+  // TODO: Act on errors.
   public static async EvaluateDecisionRequest(context: Context): Promise<Decision> {
     const tag: string = `${Pdp.tag}.evaluateDecisionRequest()`;
     if (Settings.Pdp.debug) log(tag, 'context:', context);
-    const policies: Policy[] = await Prp.retrieveContextPolicies(context);
-    const policySets: PolicySet[] = await Prp.retrieveContextPolicySets(context);
+    const errors: Error[] = [];
+    const policies: Policy[] = await Prp.retrieveContextPolicies(context, errors);
+    const policySets: PolicySet[] = await Prp.retrieveContextPolicySets(context, errors);
     const policySet: PolicySet = {
       id: null,
       version: null,
@@ -162,25 +148,26 @@ export class Pdp extends Singleton {
   }
 
   // TODO: Does the combining algorithm has to be passed down?
-  public static async combineDecision(context: Context, policy: Policy | PolicySet,
-    combiningAlgorithm: CombiningAlgorithm = policy.combiningAlgorithm): Promise<Decision> {
+  public static async combineDecision(context: Context, element: Policy | PolicySet,
+    combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
     const tag: string = `${Pdp.tag}.combineDecision()`;
-    if (Settings.Pdp.debug) log(tag, 'policy:', policy);
+    if (Settings.Pdp.debug) log(tag, 'element:', element);
+    const policy: boolean = isPolicy(element);
 
     // The containing policySet doesn't have an id.
-    if (policy.id) {
-      const targetAttributeMap: any = isPolicy(policy) ?
-        Pdp.retrieveTargetAttributeMap(policy, Pdp.policyTargetAttributeMaps) :
-        Pdp.retrieveTargetAttributeMap(policy, Pdp.policySetTargetAttributeMaps);
+    if (element.id) {
+      const targetAttributeMap: any = policy ?
+        Pdp.retrieveTargetAttributeMap(element, Pdp.policyTargetAttributeMaps) :
+        Pdp.retrieveTargetAttributeMap(element, Pdp.policySetTargetAttributeMaps);
       if (Settings.Pdp.debug) log(tag, 'targetAttributeMap:', targetAttributeMap);
 
       const missingTargetAttributes: string[] = await Pip.retrieveAttributes(context, targetAttributeMap);
       if (missingTargetAttributes.length) {
-        if (Settings.Pdp.debug) log(tag, `Evaluating ${isPolicy(policy) ? 'Policy' : 'PolicySet'} #${policy.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: ${printArr(missingTargetAttributes)}.`);
+        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate ${policy ? 'Policy' : 'PolicySet'} #${element.id} target. Evaluating ${policy ? 'Policy' : 'PolicySet'} to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
         return Decision.Indeterminate;
       }
 
-      const targetMatch: boolean | Decision = Pdp.evaluateTarget(context, policy);
+      const targetMatch: boolean | Decision = Pdp.evaluateTarget(context, element);
       if (Settings.Pdp.debug) log(tag, 'targetMatch:', targetMatch);
       if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
       if (!targetMatch) return Decision.NotApplicable;
@@ -188,27 +175,27 @@ export class Pdp extends Singleton {
 
     let decision: Decision;
     if (includes(CombiningAlgorithms, combiningAlgorithm)) {
-      if (combiningAlgorithm === CombiningAlgorithm.DenyOverrides) decision = await Pdp.denyOverrides(context, policy);
-      if (combiningAlgorithm === CombiningAlgorithm.PermitOverrides) decision = await Pdp.permitOverrides(context, policy);
-      if (combiningAlgorithm === CombiningAlgorithm.DenyUnlessPermit) decision = await Pdp.denyUnlessPermit(context, policy);
-      if (combiningAlgorithm === CombiningAlgorithm.PermitUnlessDeny) decision = await Pdp.permitUnlessDeny(context, policy);
-      if (combiningAlgorithm === CombiningAlgorithm.PermitOverrides) decision = await Pdp.permitOverrides(context, policy);
-      if (combiningAlgorithm === CombiningAlgorithm.FirstApplicable) decision = await Pdp.firstApplicable(context, policy);
-      if (combiningAlgorithm === CombiningAlgorithm.OnlyOneApplicable) decision = await Pdp.onlyOneApplicable(context, policy);
+      if (combiningAlgorithm === CombiningAlgorithm.DenyOverrides) decision = await Pdp.denyOverrides(context, element);
+      if (combiningAlgorithm === CombiningAlgorithm.PermitOverrides) decision = await Pdp.permitOverrides(context, element);
+      if (combiningAlgorithm === CombiningAlgorithm.DenyUnlessPermit) decision = await Pdp.denyUnlessPermit(context, element);
+      if (combiningAlgorithm === CombiningAlgorithm.PermitUnlessDeny) decision = await Pdp.permitUnlessDeny(context, element);
+      if (combiningAlgorithm === CombiningAlgorithm.PermitOverrides) decision = await Pdp.permitOverrides(context, element);
+      if (combiningAlgorithm === CombiningAlgorithm.FirstApplicable) decision = await Pdp.firstApplicable(context, element);
+      if (combiningAlgorithm === CombiningAlgorithm.OnlyOneApplicable) decision = await Pdp.onlyOneApplicable(context, element);
     } else {
       const customCombiningAlgorithm: CustomCombiningAlgorithm = Pdp.getCustomCombiningAlgorithmById(combiningAlgorithm);
       if (customCombiningAlgorithm) {
-        customCombiningAlgorithm.handler(context, policy, Pdp.combineDecision, Pdp.evaluateRule);
+        customCombiningAlgorithm.handler(context, element, Pdp.combineDecision, Pdp.evaluateRule);
       } else {
-        if (Settings.Pdp.debug) log(tag, `Policy or PolicySet #${policy.id} contains an invalid combiningAlgorithm (${combiningAlgorithm}). Evaluating to ${Decision[Decision.Indeterminate]}.`);
+        if (Settings.Pdp.debug) log(tag, `${policy ? 'Policy' : 'PolicySet'} #${element.id} contains an invalid combiningAlgorithm (${combiningAlgorithm}). Evaluating to ${Decision[Decision.Indeterminate]}.`);
         return Decision.Indeterminate;
       }
     }
 
-    if (policy.id) {
-      // Using an array because the same policy and policy set could be evaluated
+    if (element.id) {
+      // Using an array because the same element and element set could be evaluated
       // multiple times with different targets and decisions.
-      context.policyList = [...context.policyList, { policy, decision }];
+      context.policyList = [...context.policyList, { policy: element, decision }];
     }
 
     return decision;
@@ -391,7 +378,7 @@ export class Pdp extends Singleton {
     if (Settings.Pdp.debug) log(tag, 'targetAttributeMap:', targetAttributeMap);
     const missingTargetAttributes: string[] = await Pip.retrieveAttributes(context, targetAttributeMap);
     if (missingTargetAttributes.length) {
-      if (Settings.Pdp.debug) log(tag, `Evaluating Rule #${rule.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: ${printArr(missingTargetAttributes)}.`);
+      if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${rule.id} target. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
       return Decision.Indeterminate;
     }
 
@@ -400,34 +387,46 @@ export class Pdp extends Singleton {
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
+    const ruleHandlerDefined: boolean = isPresent(rule.handlerId);
+    if (rule.condition && ruleHandlerDefined) {
+      if (Settings.Pdp.debug) log(tag, `Rule #${rule.id} has both the condition and handlerId defined. Evaluating Rule to ${Decision[Decision.Indeterminate]}.`);
+      return Decision.Indeterminate;
+    }
+
+    let conditionAttributeMap: any;
     let ruleHandler: RuleHandler;
-    if (isPresent(rule.handlerId)) {
+    if (rule.condition) {
+      conditionAttributeMap = Pdp.retrieveRuleConditionAttributeMap(rule);
+    } else if (ruleHandlerDefined) {
       ruleHandler = Pdp.getRuleHandlerById(rule.handlerId);
       if (!ruleHandler) {
-        if (Settings.Pdp.debug) log(tag, `Rule #${rule.id} Handler #${rule.handlerId} is not registered with the Pdp. Evaluating rule to ${Decision[Decision.Indeterminate]}.`);
+        if (Settings.Pdp.debug) log(tag, `Rule #${rule.id} RuleHandler #${rule.handlerId} is not registered with the Pdp. Evaluating Rule to ${Decision[Decision.Indeterminate]}.`);
+        return Decision.Indeterminate;
+      }
+      conditionAttributeMap = ruleHandler.attributeMap;
+    } else {
+      // Rule has no condition or ruleHandler defined.
+      conditionAttributeMap = null;
+    }
+
+    if (Settings.Pdp.debug) log(tag, 'conditionAttributeMap:', conditionAttributeMap);
+    if (conditionAttributeMap) {
+      const missingConditionAttributes: string[] = await Pip.retrieveAttributes(context, conditionAttributeMap);
+      if (missingConditionAttributes.length) {
+        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${rule.id} ${ruleHandlerDefined ? 'RuleHandler #' + rule.handlerId : 'condition'}. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
         return Decision.Indeterminate;
       }
     }
 
-    const conditionAttributeMap: any = ruleHandler && ruleHandler.attributeMap || Pdp.retrieveRuleConditionAttributeMap(rule);
-    if (Settings.Pdp.debug) log(tag, 'conditionAttributeMap:', conditionAttributeMap);
-    const missingConditionAttributes: string[] = await Pip.retrieveAttributes(context, conditionAttributeMap);
-    if (missingConditionAttributes.length) {
-      if (Settings.Pdp.debug) log(tag, `Evaluating Rule #${rule.id} to ${Decision[Decision.Indeterminate]}. Couldn't retrieve these attributes to evaluate target: ${printArr(missingConditionAttributes)}.`);
-      return Decision.Indeterminate;
-    }
-
-    let decision: boolean | Decision;
-    if (ruleHandler) decision = await evaluateHandler(context, ruleHandler, 'RuleHandler', Pip);
-    else decision = Pdp.evaluateCondition(context, rule);
-
+    const decision: boolean | Decision = !rule.condition && !ruleHandlerDefined ? true :
+      rule.condition ? Pdp.evaluateCondition(context, rule) :
+        await evaluateHandler(context, ruleHandler, 'RuleHandler', Pip);
     if (Settings.Pdp.debug) log(tag, 'decision:', decision);
 
     let effect: Effect | Decision;
     if (decision === true) effect = rule.effect;
     else if (decision === false) effect = Decision.NotApplicable;
-    else decision = Decision.Indeterminate;
-
+    else effect = Decision.Indeterminate;
     if (Settings.Pdp.debug) log(tag, 'effect:', effect);
 
     return effect;
@@ -435,18 +434,16 @@ export class Pdp extends Singleton {
 
   public static evaluateTarget(context: Context, element: Rule | Policy | PolicySet): boolean | Decision {
     const tag: string = `${Pdp.tag}.(Element - ${element.id}).evaluateTarget()`;
-    const anyOfArr: AnyOf[] = element.target;
-    if (Settings.Pdp.debug) log(tag, 'target:', anyOfArr);
-    const targetValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, anyOfArr);
+    if (Settings.Pdp.debug) log(tag, 'target:', element.target);
+    const targetValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, element.target);
     if (Settings.Pdp.debug) log(tag, 'targetValue:', targetValue);
     return targetValue;
   }
 
   public static evaluateCondition(context: Context, element: Rule): boolean | Decision {
     const tag: string = `${Pdp.tag}.(Rule - ${element.id}).evaluateCondition()`;
-    const anyOfArr: AnyOf[] = element.condition;
-    if (Settings.Pdp.debug) log(tag, 'condition:', anyOfArr);
-    const conditionValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, anyOfArr);
+    if (Settings.Pdp.debug) log(tag, 'condition:', element.condition);
+    const conditionValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, element.condition);
     if (Settings.Pdp.debug) log(tag, 'conditionValue:', conditionValue);
     return conditionValue;
   }

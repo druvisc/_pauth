@@ -58,12 +58,13 @@ export const getPairIndex = (start: string, end: string, str: string, position: 
 export const includes = (arr: any[], v: any): boolean => arr.indexOf(v) !== -1;
 export const flatten = (arr: any[][]): any[] => [].concat.apply([], arr);
 export const unique = (arr: any[]): any[] => arr.reduce((a, b) => includes(a, b) ? a : [...a, b], []);
-export const printArr = (arr: any[]) => `[${arr.join(', ')}]`;
+export const printArr = (arr: any[], delimiter: string = ', ') => `[${arr.join(delimiter)}]`;
 /** Array operations */
 
 
 /** Object operations */
 export const createMap = (): any => Object.create(null);
+export const getValues = (v): any[] => !isObject(v) ? null : Object.keys(v).map(k => v[k]);
 
 export const hasOwnPropertyNested = (object: any, attribute: string): boolean => {
   const split: string[] = attribute.split('.');
@@ -86,6 +87,13 @@ export const listMissingNestedValues = (context: any, requestedAttributeMap: any
       hasOwnPropertyNested(requestedAttributeMap, attribute) ?
         missing : [...missing, attribute], []), []));
 
+export const listFlatAttributes = (obj: any, objName: string): string[] =>
+  Object.keys(obj).reduce((flatAttributes, attribute) => {
+    const str: string = `${objName}.${attribute}`;
+    return flatten([...flatAttributes, isObject(obj[attribute]) ? listFlatAttributes(obj[attribute], str) : str]);
+  }, []);
+
+
 /** Object operations */
 
 
@@ -106,9 +114,8 @@ export const isId = (v: any): boolean => isNumber(v) || isString(v);
 
 /* XACMLElement operations */
 export const isRule = (v: any): boolean => v.hasOwnProperty('effect');
-// Don't have to have them defined.
-// export const isPolicy = (v: any): boolean => v.hasOwnProperty('rules');
-// export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
+export const isPolicy = (v: any): boolean => v.hasOwnProperty('rules');
+export const isPolicySet = (v: any): boolean => v.hasOwnProperty('policies');
 export const anyOf = (): AnyOf[] => [[[]]];
 /** Handler operations */
 export async function retrieveElement(element: string | id, handler: string, point: string): Promise<any> {

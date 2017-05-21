@@ -18,23 +18,23 @@ export interface HandlerResult {
 }
 
 export interface Context {
-  returnReason: boolean;
+  returnReason: boolean; // Denial reason
   returnPolicyList: boolean;
   returnAdviceResults: boolean;
   returnObligationResults: boolean;
-  reason: string;
-  decision: Decision;
+  reason?: string;
+  decision?: Decision;
   action: Action;
   subject: Subject;
   resource: Resource;
   environment?: Environment;
   additional?: any;
-  policyList: {
+  policyList?: {
     policy: Policy | PolicySet
     decision: Decision
   }[];
-  adviceResults: HandlerResult[];
-  obligationResults: HandlerResult[];
+  adviceResults?: HandlerResult[];
+  obligationResults?: HandlerResult[];
 }
 
 export interface Action {

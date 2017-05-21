@@ -167,17 +167,20 @@ export class Prp extends Singleton {
     if (Settings.Prp.debug) log(tag, 'policySetMap:\n', Prp.policySetMap, '\n');
 
     const evaluatedPolicies: Policy[] = Object.keys(Prp.policyMap).map(policyId =>
-      Prp.evaluatePolicyRulesAndTargets(Prp.policyMap[policyId], errors));
+      Prp.evaluatePolicy(Prp.policyMap[policyId], errors));
     const evaluatedPolicySets: PolicySet[] = Object.keys(Prp.policySetMap).map(policySetId =>
-      Prp.evaluatePolicySetPoliciesAndTargets(Prp.policySetMap[policySetId], errors));
+      Prp.evaluatePolicySet(Prp.policySetMap[policySetId], errors));
 
-    if (Settings.Prp.debug) log(tag, 'evaluatedPolicies:\n', evaluatedPolicies, '\n');
-    if (Settings.Prp.debug) log(tag, 'evaluatedPolicySets:\n', evaluatedPolicySets, '\n\n');
+    if (Settings.Prp.debug) log(tag, 'evaluatedPolicies:\n', printArr(evaluatedPolicies, '\n'), '\n');
+    if (Settings.Prp.debug) log(tag, 'evaluatedPolicySets:\n', printArr(evaluatedPolicySets, '\n'), '\n\n');
 
-    if (errors.length) throw `\n${errors.join('\n')}`;
+    // targetQueryErrors are already reported through Bootstrap.getRule, Bootstrap.getPolicy and Bootstrap.getPolicySet.
+    const targetQueryErrors: Error[] = [];
+    Prp.createTargetMaps(targetQueryErrors);
+
+    if (errors.length) throw `\n${printArr(errors, '\n')}`;
 
     Prp.bootstrapped = true;
-    Prp.createPolicyTargetMap();
 
     if (!Settings.Prp.cacheIdElements) {
       Prp.ruleMap = {};
@@ -194,8 +197,7 @@ export class Prp extends Singleton {
     return Prp.bootstrapped;
   }
 
-  // Evaluate the Policy's Target, its Rules and Rule Target elements.
-  private static evaluatePolicyRulesAndTargets(element: Policy, errors: Error[], parent: PolicySet = {} as PolicySet): Policy {
+  private static evaluatePolicy(element: Policy, errors: Error[], parent: PolicySet = {} as PolicySet): Policy {
     return Object.assign({}, element, {
       target: Prp.retrievePolicyTarget(element, errors),
       rules: [
@@ -209,27 +211,27 @@ export class Prp extends Singleton {
     });
   }
 
-  // Evaluate the PolicySet's Target, its Policies and PolicySets and the Policy and PolicySet Target elements.
-  private static evaluatePolicySetPoliciesAndTargets(element: PolicySet, errors: Error[], parent: PolicySet = {} as PolicySet): PolicySet {
+  private static evaluatePolicySet(element: PolicySet, errors: Error[], parent: PolicySet = {} as PolicySet): PolicySet {
     return Object.assign({}, element, {
       target: Prp.retrievePolicySetTarget(element, errors),
       policies: [
-        ...element.policyIds.map(id => Prp.evaluatePolicyRulesAndTargets(Prp.policyMap[id], errors, element)),
-        ...element.policyUrls.map(url => Prp.evaluatePolicyRulesAndTargets(Prp.externalPolicyMap[url], errors, element))
+        ...element.policyIds.map(id => Prp.evaluatePolicy(Prp.policyMap[id], errors, element)),
+        ...element.policyUrls.map(url => Prp.evaluatePolicy(Prp.externalPolicyMap[url], errors, element))
       ],
       policySets: [
-        ...element.policySetIds.map(id => Prp.evaluatePolicySetPoliciesAndTargets(Prp.policySetMap[id], errors, element)),
-        ...element.policySetUrls.map(url => Prp.evaluatePolicySetPoliciesAndTargets(Prp.externalPolicySetMap[url], errors, element))
+        ...element.policySetIds.map(id => Prp.evaluatePolicySet(Prp.policySetMap[id], errors, element)),
+        ...element.policySetUrls.map(url => Prp.evaluatePolicySet(Prp.externalPolicySetMap[url], errors, element))
       ],
     });
   }
 
-  private static createPolicyTargetMap(): void {
-    const tag: string = `${Prp.tag}.createPolicyTargetMap()`;
-    Prp.elementsToTargetMap(Prp.policyMap, Prp.policyTargetMap);
-    Prp.elementsToTargetMap(Prp.policySetMap, Prp.policySetTargetMap);
-    Prp.elementsToTargetMap(Prp.externalPolicyMap, Prp.externalPolicyTargetMap);
-    Prp.elementsToTargetMap(Prp.externalPolicySetMap, Prp.externalPolicySetTargetMap);
+  private static createTargetMaps(errors: Error[]): void {
+    const tag: string = `${Prp.tag}.createTargetMaps()`;
+
+    Prp.elementsToTargetMap(Prp.policyMap, Prp.policyTargetMap, 'Policy', errors);
+    Prp.elementsToTargetMap(Prp.policySetMap, Prp.policySetTargetMap, 'PolicySet', errors);
+    Prp.elementsToTargetMap(Prp.externalPolicyMap, Prp.externalPolicyTargetMap, 'Policy', errors);
+    Prp.elementsToTargetMap(Prp.externalPolicySetMap, Prp.externalPolicySetTargetMap, 'PolicySet', errors);
 
     if (Settings.Prp.debug) log(tag, 'policyTargetMap:\n', Prp.policyTargetMap, '\n');
     if (Settings.Prp.debug) log(tag, 'policySetTargetMap:\n', Prp.policySetTargetMap, '\n');
@@ -237,63 +239,60 @@ export class Prp extends Singleton {
     if (Settings.Prp.debug) log(tag, 'externalPolicySetTargetMap:\n', Prp.externalPolicySetTargetMap, '\n\n');
   }
 
-  private static elementsToTargetMap(elementMap: any, targetMap: any): void {
+  private static elementsToTargetMap(elementMap: any, targetMap: any, type: string, errors: Error[]): void {
     const tag: string = `${Prp.tag}.elementsToTargetMap()`;
-    Object.keys(elementMap).forEach(elementId =>
-      elementMap[elementId].target.forEach(target =>
-        target.forEach(expression =>
-          Language.extractQueries(expression).forEach(query =>
-            targetMap[query] = targetMap[query] ? [...targetMap[query], elementId] : [elementId]
-          )
-        )
-      )
-    );
+    Object.keys(elementMap).forEach(identifier => Prp.elementsToTargetMap(elementMap[identifier], identifier, type, errors));
   }
 
-  public static async retrieveContextPolicies(context: Context): Promise<Policy[]> {
+  // Will be used when PAP pushes policies.
+  private static elementToTargetMap(element: Policy | PolicySet, identifier: id | url, targetMap: any, type: string, errors: Error[]): void {
+    const tag: string = `${Prp.tag}.elementToTargetMap()`;
+    const queryErrors: Error[] = [];
+    const queries: string[] = Language.anyOfArrToQueries(element.target, queryErrors);
+    if (queryErrors.length) errors.push(Error(`${type} #${identifier} has an invalid target: ${printArr(queryErrors, '\n')}.`));
+    else queries.forEach(query => targetMap[query] = targetMap[query] ? [...targetMap[query], identifier] : [identifier]);
+  }
+
+  public static async retrieveContextPolicies(context: Context, errors: Error[]): Promise<Policy[]> {
     const tag: string = `${Prp.tag}.retrieveContextPolicies()`;
     if (!Prp.bootstrapped) throw Error(`Prp has not been bootstrapped.`);
-    const errors: Error[] = [];
 
     const idPolicies: any[] = Settings.Prp.cacheIdElements ?
       Prp.targetMapThroughCacheToElements(context, Prp.policyTargetMap, Prp.policyMap) :
       await Prp.targetMapThroughPromiseToElements(context, Prp.policyTargetMap, Prp.retrievePolicyById);
     const evaluatedIdPolicies: Policy[] = idPolicies.map(policy =>
-      Prp.evaluatePolicyRulesAndTargets(policy, errors));
+      Prp.evaluatePolicy(policy, errors));
     if (Settings.Prp.debug) log(tag, 'evaluatedIdPolicies:', evaluatedIdPolicies);
 
     const urlPolicies: any[] = Settings.Prp.cacheUrlElements ?
       Prp.targetMapThroughCacheToElements(context, Prp.externalPolicyTargetMap, Prp.policyMap) :
       await Prp.targetMapThroughPromiseToElements(context, Prp.externalPolicyTargetMap, Prp.retrievePolicyByUrl);
     const evaluatedUrlPolicies: Policy[] = urlPolicies.map(policy =>
-      Prp.evaluatePolicyRulesAndTargets(policy, errors));
+      Prp.evaluatePolicy(policy, errors));
     if (Settings.Prp.debug) log(tag, 'evaluatedUrlPolicies:', evaluatedUrlPolicies);
 
-    // TODO: Take action upon errors?
     const policies: Policy[] = [...idPolicies, ...urlPolicies];
     return policies;
   }
 
-  public static async retrieveContextPolicySets(context: Context): Promise<PolicySet[]> {
+  public static async retrieveContextPolicySets(context: Context, errors: Error[]): Promise<PolicySet[]> {
     const tag: string = `${Prp.tag}.retrieveContextPolicySets()`;
     if (!Prp.bootstrapped) throw Error(`Prp has not been bootstrapped.`);
-    const errors: Error[] = [];
 
     const idPolicySets: any[] = Settings.Prp.cacheIdElements ?
       Prp.targetMapThroughCacheToElements(context, Prp.policySetTargetMap, Prp.policySetMap) :
       await Prp.targetMapThroughPromiseToElements(context, Prp.policySetTargetMap, Prp.retrievePolicySetById);
     const evaluatedIdPolicySets: PolicySet[] = idPolicySets.map(policySet =>
-      Prp.evaluatePolicySetPoliciesAndTargets(policySet, errors));
+      Prp.evaluatePolicySet(policySet, errors));
     if (Settings.Prp.debug) log(tag, 'evaluatedIdPolicySets:', evaluatedIdPolicySets);
 
     const urlPolicySets: any[] = Settings.Prp.cacheIdElements ?
       Prp.targetMapThroughCacheToElements(context, Prp.externalPolicySetTargetMap, Prp.externalPolicySetMap) :
       await Prp.targetMapThroughPromiseToElements(context, Prp.externalPolicySetTargetMap, Prp.retrievePolicySetByUrl);
     const evaluatedUrlPolicySets: PolicySet[] = urlPolicySets.map(policySet =>
-      Prp.evaluatePolicySetPoliciesAndTargets(policySet, errors));
+      Prp.evaluatePolicySet(policySet, errors));
     if (Settings.Prp.debug) log(tag, 'evaluatedUrlPolicySets:', evaluatedUrlPolicySets);
 
-    // TODO: Take action upon errors?
     const policySets: PolicySet[] = [...idPolicySets, ...urlPolicySets];
     return policySets;
   }

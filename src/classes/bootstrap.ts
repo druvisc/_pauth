@@ -8,8 +8,9 @@ import {
 } from '../constants';
 import {
   log, isString, isUrl, isNumber, isArray, isFunction, isObject, includes, printArr,
-  anyOf,
+  anyOf, isPresent,
 } from '../utils';
+import { Language } from '../classes/language';
 
 // TODO: Get rid of npm's valid-url. // Why was this?
 // TODO: Operation shows up in context with the null value.
@@ -104,7 +105,7 @@ export class Bootstrap extends Singleton {
   private static readonly getCombiningAlgorithm = (element: Policy | PolicySet, type: string, errors: Error[]): CombiningAlgorithm => {
     const combiningAlgorithm: CombiningAlgorithm = Bootstrap.normalizeCombiningAlgorithm(element.combiningAlgorithm);
     if (!combiningAlgorithm) errors.push(TypeError(`${type} #${element.id} has an invalid CombiningAlgorithm (${element.combiningAlgorithm}). Must be one of: ${printArr(CombiningAlgorithms)}.`));
-    if (combiningAlgorithm === CombiningAlgorithm.OnlyOneApplicable && type !== 'PolicySet') errors.push(TypeError(`${type} #${element.id} has an invalid CombiningAlgorithm (${element.combiningAlgorithm}). ${CombiningAlgorithm[CombiningAlgorithm.OnlyOneApplicable]} is only applicable to a PolicySet.`));
+    if (combiningAlgorithm === CombiningAlgorithm.OnlyOneApplicable && type !== 'PolicySet') errors.push(TypeError(`${type} #${element.id} has an invalid combiningAlgorithm (${element.combiningAlgorithm}). CombiningAlgorithm '${CombiningAlgorithm[CombiningAlgorithm.OnlyOneApplicable]}' is only applicable to a PolicySet.`));
     return combiningAlgorithm;
   }
 
@@ -182,7 +183,7 @@ export class Bootstrap extends Singleton {
   public static readonly getSubject = (element: Subject, errors: Error[]): Subject =>
     Object.assign({}, element, {
       // Unauthenticated user.
-      id: element.id ? Bootstrap.getId(element, 'Subject', errors) : null,
+      id: !isPresent(element.id) ? null : Bootstrap.getId(element, 'Subject', errors),
     })
 
 
@@ -208,57 +209,85 @@ export class Bootstrap extends Singleton {
     })
 
   public static readonly getRule = (element: Rule, errors: Error[]): Rule => {
-    // TODO: Uhm
-    const condition: AnyOf[] = element.handlerId ? anyOf() : element.condition ? Bootstrap.getCondition(element, errors) : anyOf();
-    const handlerId: id = element.condition ? null : Bootstrap.normalizeId(element.handlerId);
-
-    if (condition && handlerId) {
-      errors.push(TypeError(`Rule #${element.id} has both the condition (${element.condition}) and handlerId (${element.handlerId})defined.`));
+    const target: AnyOf[] = !element.target ? null : Bootstrap.getTarget(element, 'Rule', errors);
+    if (target) {
+      const targetErrors: Error[] = [];
+      Language.anyOfArrToQueries(target, targetErrors);
+      if (targetErrors.length) errors.push(Error(`Rule #${element.id} has an invalid target: ${printArr(targetErrors, '\n')}.`));
     }
+
+    const condition: AnyOf[] = !element.condition ? null : Bootstrap.getCondition(element, errors);
+    if (condition) {
+      const conditionErrors: Error[] = [];
+      Language.anyOfArrToQueries(target, conditionErrors);
+      if (conditionErrors.length) errors.push(Error(`Rule #${element.id} has an condition: ${printArr(conditionErrors, '\n')}.`));
+    }
+
+    const ruleHandlerDefined: boolean = isPresent(element.handlerId);
+    const handlerId: id = !ruleHandlerDefined ? null : Bootstrap.normalizeId(element.handlerId);
+    if (condition && ruleHandlerDefined) errors.push(Error(`Rule #${element.id} has both the condition (${element.condition}) and handlerId (${element.handlerId}) defined.`));
 
     return Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Rule', errors),
       version: Bootstrap.getVersion(element, 'Rule', errors),
       effect: Bootstrap.getEffect(element, 'Rule', errors),
       description: Bootstrap.getDescription(element, 'Rule', errors),
-      target: !element.target ? null : Bootstrap.getTarget(element, 'Rule', errors),
+      target,
       condition,
       handlerId,
+      // TODO: Maybe can keep these to null so there's no unnecessary debug information in the Pep.
       obligationIds: Bootstrap.getIds(element, 'obligationIds', 'Rule', errors),
       adviceIds: Bootstrap.getIds(element, 'adviceIds', 'Rule', errors),
     });
   }
 
-  public static readonly getPolicy = (element: Policy, errors: Error[]): Policy =>
-    Object.assign({}, element, {
+  public static readonly getPolicy = (element: Policy, errors: Error[]): Policy => {
+    const target: AnyOf[] = !element.target ? null : Bootstrap.getTarget(element, 'Policy', errors);
+    if (target) {
+      const targetErrors: Error[] = [];
+      Language.anyOfArrToQueries(target, targetErrors);
+      if (targetErrors.length) errors.push(Error(`Policy #${element.id} has an invalid target: ${printArr(targetErrors, '\n')}.`));
+    }
+
+    return Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Policy', errors),
       version: Bootstrap.getVersion(element, 'Policy', errors),
       combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element, 'Policy', errors),
       // maxDelegationDepth?: number;
       description: Bootstrap.getDescription(element, 'Policy', errors),
-      target: !element.target ? null : Bootstrap.getTarget(element, 'Policy', errors),
+      target,
       // issuer?: string;
       // defaults?: any;
       // combinerParameters: any;
       // ruleCombinerParameters: any;
       // variableDefinition: any;
+      // TODO: Maybe can keep these to null so there's no unnecessary debug information in the Pep.
       ruleIds: Bootstrap.getIds(element, 'ruleIds', 'Policy', errors),
       ruleUrls: Bootstrap.getUrls(element, 'ruleUrls', 'Policy', errors),
       obligationIds: Bootstrap.getIds(element, 'obligationIds', 'Policy', errors),
       adviceIds: Bootstrap.getIds(element, 'adviceIds', 'Policy', errors),
-    })
+    });
+  }
 
 
-  public static readonly getPolicySet = (element: PolicySet, errors: Error[]): PolicySet =>
-    Object.assign({}, element, {
+  public static readonly getPolicySet = (element: PolicySet, errors: Error[]): PolicySet => {
+    const target: AnyOf[] = !element.target ? null : Bootstrap.getTarget(element, 'PolicySet', errors);
+    if (target) {
+      const targetErrors: Error[] = [];
+      Language.anyOfArrToQueries(target, targetErrors);
+      if (targetErrors.length) errors.push(Error(`PolicySet #${element.id} has an invalid target: ${printArr(targetErrors, '\n')}.`));
+    }
+
+    return Object.assign({}, element, {
       id: Bootstrap.getId(element, 'PolicySet', errors),
       version: Bootstrap.getVersion(element, 'PolicySet', errors),
       combiningAlgorithm: Bootstrap.getCombiningAlgorithm(element, 'PolicySet', errors),
       // maxDelegationDepth?: number;
       description: Bootstrap.getDescription(element, 'PolicySet', errors),
-      target: !element.target ? null : Bootstrap.getTarget(element, 'PolicySet', errors),
+      target,
       // issuer?: string;
       // defaults?: any;
+      // TODO: Maybe can keep these to null so there's no unnecessary debug information in the Pep.
       policySetIds: Bootstrap.getIds(element, 'policySetIds', 'PolicySet', errors),
       policyIds: Bootstrap.getIds(element, 'policyIds', 'PolicySet', errors),
       obligationIds: Bootstrap.getIds(element, 'obligationIds', 'PolicySet', errors),
@@ -266,13 +295,14 @@ export class Bootstrap extends Singleton {
       // combinerParameters: any;
       // policyCombinerParameters: any;
       // policySetCombinerParameters: any;
-    })
+    });
+  }
 
 
   public static readonly getObligation = (element: Obligation, errors: Error[]): Obligation =>
     Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Obligation', errors),
-      version: !element.version ? null : Bootstrap.getVersion(element, 'Obligation', errors),
+      version: !isPresent(element.version) ? null : Bootstrap.getVersion(element, 'Obligation', errors),
       description: Bootstrap.getDescription(element, 'Obligation', errors),
       // Effect upon which the obligation MUST be fulfilled. Allow to be omitted for both Effects.
       effect: !element.effect ? null : Bootstrap.getEffect(element, 'Obligation', errors),
@@ -284,7 +314,7 @@ export class Bootstrap extends Singleton {
   public static readonly getAdvice = (element: Advice, errors: Error[]): Advice =>
     Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Advice', errors),
-      version: !element.version ? null : Bootstrap.getVersion(element, 'Advice', errors),
+      version: !isPresent(element.version) ? null : Bootstrap.getVersion(element, 'Advice', errors),
       description: Bootstrap.getDescription(element, 'Advice', errors),
       // Effect upon which the advice MAY be fulfilled. Allow to be omitted for both Effects.
       effect: !element.effect ? null : Bootstrap.getEffect(element, 'Advice', errors),
