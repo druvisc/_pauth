@@ -2,6 +2,8 @@ const validUrl = require('valid-url');
 import { id, url, handler, AnyOf, Context, RuleHandler, Obligation, Advice, } from './interfaces';
 import { Request } from './classes/request';
 import { Pip } from './points/pip';
+import * as jp from 'jsonpath';
+import { Language } from './classes/language';
 
 export const log = console.log; // console.log(JSON.stringify(myObject, null, 4));
 
@@ -58,7 +60,8 @@ export const getPairIndex = (start: string, end: string, str: string, position: 
 export const includes = (arr: any[], v: any): boolean => arr.indexOf(v) !== -1;
 export const flatten = (arr: any[][]): any[] => [].concat.apply([], arr);
 export const unique = (arr: any[]): any[] => arr.reduce((a, b) => includes(a, b) ? a : [...a, b], []);
-export const printArr = (arr: any[], delimiter: string = ', ') => `[${arr.join(delimiter)}]`;
+export const printArr = (arr: any[], delimiter: string = ', ', wrapStart: string = "'", wrapEnd: string = wrapStart) =>
+  `[${arr.map(v => `${wrapStart}${v}${wrapEnd}`).join(delimiter)}]`;
 /** Array operations */
 
 
@@ -81,11 +84,17 @@ export const hasOwnPropertyNested = (object: any, attribute: string): boolean =>
   return has;
 };
 
-export const listMissingNestedValues = (context: any, requestedAttributeMap: any): string[] =>
-  flatten(Object.keys(requestedAttributeMap).reduce((missing, element) =>
-    requestedAttributeMap[element].reduce((missing, attribute) =>
-      hasOwnPropertyNested(requestedAttributeMap, attribute) ?
-        missing : [...missing, attribute], []), []));
+export const listMissingNestedValues = (context: any, attributeMap: any): string[] => {
+  const tag: string = `listMissingNestedValues()`;
+  const missingAttributes: string[] = [];
+  Object.keys(attributeMap).forEach(element =>
+    attributeMap[element].forEach(attribute => {
+      const query: string = Language.attributeToJsonPathQuery(`${element}.${attribute}`);
+      const queryRes: any[] = jp.query(context, query);
+      if (!queryRes.length) missingAttributes.push(query);
+    }));
+  return missingAttributes;
+};
 
 export const listFlatAttributes = (obj: any, objName: string): string[] =>
   Object.keys(obj).reduce((flatAttributes, attribute) => {

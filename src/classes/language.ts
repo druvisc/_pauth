@@ -26,11 +26,13 @@ export class Language extends Singleton {
       return Decision.Indeterminate;
     }
 
-    let queryRes: string;
     for (const query of queries) {
       if (Settings.Language.debug) log(tag, 'query:', query);
+      const jsonPathQuery: string = Language.queryToJsonPathQuery(query);
+      if (Settings.Language.debug) log(tag, 'jsonPathQuery:', jsonPathQuery);
+      let queryRes: string;
       try {
-        queryRes = jp.query(context, query)[0];
+        queryRes = jp.query(context, jsonPathQuery)[0];
       } catch (err) {
         if (Settings.Language.error) log(tag, `Invalid query (${query}) - JSONPath threw an error. Evaluating expression to ${Decision[Decision.Indeterminate]}.`);
         return Decision.Indeterminate;
@@ -56,16 +58,16 @@ export class Language extends Singleton {
       if (isCharQuoted(str, queryStart)) {
         queryEnd = queryStart;
       } else {
-        if (Settings.Language.debug) log(tag, 'queryStart:', queryStart);
+        // if (Settings.Language.debug) log(tag, 'queryStart:', queryStart);
         queryEnd = getPairIndex(QueryEndPair, QueryEnd, str, queryStart + 1);
-        if (Settings.Language.debug) log(tag, 'queryEnd:', queryEnd);
+        // if (Settings.Language.debug) log(tag, 'queryEnd:', queryEnd);
         if (queryEnd === -1) {
           if (Settings.Language.error) log(tag, `Invalid expression (${str}). Couldn't extract the query starting at ${queryStart}. Missing the query end ('${QueryEnd}'). Evaluating expression to ${Decision[Decision.Indeterminate]}.`);
           return Decision.Indeterminate;
         }
 
-        query = str.substring(queryStart + QueryStart.length, queryEnd);
-        if (Settings.Language.debug) log(tag, 'query:', query);
+        query = str.substring(queryStart, queryEnd + 1);
+        // if (Settings.Language.debug) log(tag, 'query:', query);
         queries.push(query);
       }
       queryStart = str.indexOf(QueryStart, queryEnd + 1);
@@ -77,13 +79,13 @@ export class Language extends Singleton {
     const tag: string = `${Language.tag}.retrieveContextQueries()`;
     // Filter out attribute categories (objects).
     const elementKeys: string[] = Object.keys(context).filter(k => isObject(context[k]));
-    if (Settings.Pip.debug) log(tag, 'elementKeys:', elementKeys);
+    if (Settings.Language.debug) log(tag, 'elementKeys:', elementKeys);
     const queries: string[] = flatten(elementKeys.map(elementKey => {
-      if (Settings.Pip.debug) log(tag, 'elementKey:', elementKey);
+      if (Settings.Language.debug) log(tag, 'elementKey:', elementKey);
       const element: any = context[elementKey];
-      if (Settings.Pip.debug) log(tag, 'element:', element);
-      const queries: string[] = listFlatAttributes(element, elementKey).map(v => `$.${v}`);
-      if (Settings.Pip.debug) log(tag, 'queries:', queries);
+      if (Settings.Language.debug) log(tag, 'element:', element);
+      const queries: string[] = listFlatAttributes(element, elementKey).map(Language.attributeToQuery);
+      if (Settings.Language.debug) log(tag, 'queries:', queries);
       return queries;
     }));
     return queries;
@@ -91,10 +93,11 @@ export class Language extends Singleton {
 
   public static anyOfArrToFlatAttributeMap(anyOfArr: AnyOf[], errors: Error[]): any {
     const tag: string = `${Language.tag}.anyOfArrToQueries()`;
+    if (Settings.Language.debug) log(tag);
     const queries: string[] = Language.anyOfArrToQueries(anyOfArr, errors);
-    if (Settings.Pip.debug) log(tag, 'queries:', queries);
+    // if (Settings.Language.debug) log(tag, 'queries:', queries);
     const attributeMap: any = Language.queriesToFlatAttributeMap(queries);
-    if (Settings.Pip.debug) log(tag, 'attributeMap:', attributeMap);
+    // if (Settings.Language.debug) log(tag, 'attributeMap:', attributeMap);
     return attributeMap;
   }
 
@@ -114,18 +117,34 @@ export class Language extends Singleton {
     return uniqueQueries;
   }
 
-  // TODO: Nested or no?
   public static queriesToFlatAttributeMap(queries: string[]): any {
     const tag: string = `${Language.tag}.queriesToFlatAttributeMap()`;
-    if (Settings.Pip.debug) log(tag, 'queries:', queries);
+    if (Settings.Language.debug) log(tag, 'queries:', queries);
     const flatAttributeMap: any = queries.reduce((map, query) => {
+      query = query.slice(QueryStart.length, -QueryEnd.length);
+      // if (Settings.Language.debug) log(tag, 'query:', query);
       const split: string[] = query.split('.');
-      const element: string = split[1];
+      const element: string = split[0];
+      // if (Settings.Language.debug) log(tag, 'element:', element);
       const flatAttribute: string = split.slice(1).join();
+      // if (Settings.Language.debug) log(tag, 'flatAttribute:', flatAttribute);
       map[element] = map[element] ? [...map[element], flatAttribute] : [flatAttribute];
       return map;
     }, {});
-    if (Settings.Pip.debug) log(tag, 'flatAttributeMap:', flatAttributeMap);
+    // if (Settings.Language.debug) log(tag, 'flatAttributeMap:', flatAttributeMap);
+    return flatAttributeMap;
+  }
+
+  public static attributeToJsonPathQuery(attribute: string): string {
+    return `$.${attribute}`;
+  }
+
+  public static attributeToQuery(attribute: string): string {
+    return `${QueryStart}${attribute}${QueryEnd}`;
+  }
+
+  public static queryToJsonPathQuery(query: string): string {
+    return query.slice(1, -QueryEnd.length);
   }
 }
 

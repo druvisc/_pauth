@@ -380,37 +380,37 @@ export class Pdp extends Singleton {
     return result;
   }
 
-  public static async evaluateRule(context: Context, rule: Rule): Promise<Effect | Decision> {
-    const tag: string = `${Pdp.tag}.${rule.id}.evaluateRule()`;
-    if (Settings.Pdp.debug) log(tag, 'rule:', rule);
+  public static async evaluateRule(context: Context, element: Rule): Promise<Effect | Decision> {
+    const tag: string = `${Pdp.tag}.evaluateRule()`;
+    if (Settings.Pdp.debug) log(tag, 'element:', element);
 
-    const targetAttributeMap: any = Pdp.retrieveTargetAttributeMap(rule, Pdp.ruleTargetAttributeMaps);
+    const targetAttributeMap: any = Pdp.retrieveTargetAttributeMap(element, Pdp.ruleTargetAttributeMaps);
     if (Settings.Pdp.debug) log(tag, 'targetAttributeMap:', targetAttributeMap);
     const missingTargetAttributes: string[] = await Pip.retrieveAttributes(context, targetAttributeMap);
     if (missingTargetAttributes.length) {
-      if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${rule.id} target. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
+      if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${element.id} target. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
       return Decision.Indeterminate;
     }
 
-    const targetMatch: boolean | Decision = Pdp.evaluateTarget(context, rule);
+    const targetMatch: boolean | Decision = Pdp.evaluateTarget(context, element);
     if (Settings.Pdp.debug) log(tag, 'targetMatch:', targetMatch);
     if (targetMatch === Decision.Indeterminate) return Decision.Indeterminate;
     if (!targetMatch) return Decision.NotApplicable;
 
-    const ruleHandlerDefined: boolean = isPresent(rule.handlerId);
-    if (rule.condition && ruleHandlerDefined) {
-      if (Settings.Pdp.debug) log(tag, `Rule #${rule.id} has both the condition and handlerId defined. Evaluating Rule to ${Decision[Decision.Indeterminate]}.`);
+    const ruleHandlerDefined: boolean = isPresent(element.handlerId);
+    if (element.condition && ruleHandlerDefined) {
+      if (Settings.Pdp.debug) log(tag, `Rule #${element.id} has both the condition and handlerId defined. Evaluating Rule to ${Decision[Decision.Indeterminate]}.`);
       return Decision.Indeterminate;
     }
 
     let conditionAttributeMap: any;
     let ruleHandler: RuleHandler;
-    if (rule.condition) {
-      conditionAttributeMap = Pdp.retrieveRuleConditionAttributeMap(rule);
+    if (element.condition) {
+      conditionAttributeMap = Pdp.retrieveRuleConditionAttributeMap(element);
     } else if (ruleHandlerDefined) {
-      ruleHandler = Pdp.getRuleHandlerById(rule.handlerId);
+      ruleHandler = Pdp.getRuleHandlerById(element.handlerId);
       if (!ruleHandler) {
-        if (Settings.Pdp.debug) log(tag, `Rule #${rule.id} RuleHandler #${rule.handlerId} is not registered with the Pdp. Evaluating Rule to ${Decision[Decision.Indeterminate]}.`);
+        if (Settings.Pdp.debug) log(tag, `Rule #${element.id} RuleHandler #${element.handlerId} is not registered with the Pdp. Evaluating Rule to ${Decision[Decision.Indeterminate]}.`);
         return Decision.Indeterminate;
       }
       conditionAttributeMap = ruleHandler.attributeMap;
@@ -423,18 +423,18 @@ export class Pdp extends Singleton {
     if (conditionAttributeMap) {
       const missingConditionAttributes: string[] = await Pip.retrieveAttributes(context, conditionAttributeMap);
       if (missingConditionAttributes.length) {
-        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${rule.id} ${ruleHandlerDefined ? 'RuleHandler #' + rule.handlerId : 'condition'}. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
+        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${element.id} ${ruleHandlerDefined ? 'RuleHandler #' + element.handlerId : 'condition'}. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
         return Decision.Indeterminate;
       }
     }
 
-    const decision: boolean | Decision = !rule.condition && !ruleHandlerDefined ? true :
-      rule.condition ? Pdp.evaluateCondition(context, rule) :
+    const decision: boolean | Decision = !element.condition && !ruleHandlerDefined ? true :
+      element.condition ? Pdp.evaluateCondition(context, element) :
         await evaluateHandler(context, ruleHandler, 'RuleHandler', Pip);
     if (Settings.Pdp.debug) log(tag, 'decision:', decision);
 
     let effect: Effect | Decision;
-    if (decision === true) effect = rule.effect;
+    if (decision === true) effect = element.effect;
     else if (decision === false) effect = Decision.NotApplicable;
     else effect = Decision.Indeterminate;
     if (Settings.Pdp.debug) log(tag, 'effect:', effect);
@@ -443,7 +443,8 @@ export class Pdp extends Singleton {
   }
 
   public static evaluateTarget(context: Context, element: Rule | Policy | PolicySet): boolean | Decision {
-    const tag: string = `${Pdp.tag}.(Element - ${element.id}).evaluateTarget()`;
+    const tag: string = `${Pdp.tag}.evaluateTarget()`;
+    if (Settings.Pdp.debug) log(tag, 'element:', element);
     if (Settings.Pdp.debug) log(tag, 'target:', element.target);
     const targetValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, element.target);
     if (Settings.Pdp.debug) log(tag, 'targetValue:', targetValue);
@@ -451,7 +452,8 @@ export class Pdp extends Singleton {
   }
 
   public static evaluateCondition(context: Context, element: Rule): boolean | Decision {
-    const tag: string = `${Pdp.tag}.(Rule - ${element.id}).evaluateCondition()`;
+    const tag: string = `${Pdp.tag}.evaluateCondition()`;
+    if (Settings.Pdp.debug) log(tag, 'element:', element);
     if (Settings.Pdp.debug) log(tag, 'condition:', element.condition);
     const conditionValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, element.condition);
     if (Settings.Pdp.debug) log(tag, 'conditionValue:', conditionValue);

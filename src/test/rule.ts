@@ -73,7 +73,7 @@ describe('Rule', () => {
     };
 
     const rule = Bootstrap.getRule(ofAgeRuleAuthenticated, []);
-    console.log('rule:', rule);
+    // console.log('rule:', rule);
     let decision: Effect | Decision = await Pdp.evaluateRule(context, rule);
     expect(decision).to.be.equal(Decision.NotApplicable);
 

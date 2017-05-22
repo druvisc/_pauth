@@ -5,7 +5,7 @@ import { Settings } from '../settings';
 import { log, retrieveElement, listMissingNestedValues, } from '../utils';
 
 export class Pip extends Singleton {
-  private static readonly tag: string = 'Pep';
+  private static readonly tag: string = 'Pip';
 
   private static bootstrapped: boolean = false;
 
@@ -33,39 +33,47 @@ export class Pip extends Singleton {
   public static async retrieveAttributes(context: Context, attributeMap: any): Promise<string[]> {
     const tag: string = `${Pip.tag}.retrieveAttributes()`;
     if (!Pip.bootstrapped) throw Error(`Pip has not been bootstrapped.`);
+    // if (Settings.Pip.debug) log(tag, 'context:', context);
+    if (Settings.Pip.debug) log(tag, 'attributeMap:', attributeMap);
 
     const attributes: any = Settings.Pip.retrieveNestedAttributes ?
       await Pip._retrieveAttributes(context, attributeMap) :
       await Pip.retrieveNestedAttributes(context, attributeMap);
+    if (Settings.Pip.debug) log(tag, 'attributes:', attributes);
 
     merge.recursive(context, attributes);
+    // if (Settings.Pip.debug) log(tag, 'context:', context);
 
     const missingAttributes: string[] = listMissingNestedValues(context, attributeMap);
+    if (Settings.Pip.debug) log(tag, 'missingAttributes:', missingAttributes);
     return missingAttributes;
   }
 
-  private static async retrieveNestedAttributes(context: Context, attributeMap: any): Promise<void> {
+  private static async retrieveNestedAttributes(context: Context, attributeMap: any): Promise<any> {
     const tag: string = `${Pip.tag}.retrieveNestedAttributes()`;
+    if (Settings.Pip.debug) log(tag, 'attributeMap:', attributeMap);
     const flatAttributeMap: any = {};
     const nextAttributeMap: any = {};
 
-    if (Settings.Pip.debug) log(tag, 'attributeMap:', attributeMap);
-
     Object.keys(attributeMap).forEach(element => {
+      // if (Settings.Pip.debug) log(tag, 'element:', element);
       flatAttributeMap[element] = [];
       attributeMap[element].forEach(attribute => {
+        // if (Settings.Pip.debug) log(tag, 'attribute:', attribute);
         const split: string[] = attribute.split('.');
         flatAttributeMap[element].push(split[0]);
-        if (split.length > 1) {
-          nextAttributeMap[split[0]] = split.slice(1).join('');
-        }
+        if (split.length > 1) nextAttributeMap[split[0]] = split.slice(1).join('');
       });
     });
 
     if (Settings.Pip.debug) log(tag, 'flatAttributeMap:', flatAttributeMap);
     if (Settings.Pip.debug) log(tag, 'nextAttributeMap:', nextAttributeMap);
 
-    await Pip._retrieveAttributes(context, flatAttributeMap);
-    await Pip.retrieveNestedAttributes(context, nextAttributeMap);
+    const attributes: any = merge.recursive({},
+      !Object.keys(flatAttributeMap).length ? {} : await Pip._retrieveAttributes(context, flatAttributeMap),
+      !Object.keys(nextAttributeMap).length ? {} : await Pip.retrieveNestedAttributes(context, nextAttributeMap)
+    );
+
+    return attributes;
   }
 }

@@ -45,7 +45,7 @@ class Settings extends Singleton {
 
   public static readonly Pip = {
     debug: true,
-    retrieveNestedAttributes: true,
+    retrieveNestedAttributes: false,
   };
 
   public static readonly Language = {
