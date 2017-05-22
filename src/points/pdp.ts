@@ -79,6 +79,7 @@ export class Pdp extends Singleton {
 
   public static async bootstrap(): Promise<void> {
     const tag: string = `${Pdp.tag}.bootstrap()`;
+    if (Settings.Prp.debug) console.log(tag);
     const errors: Error[] = [];
     Pdp.bootstrapped = false;
 
@@ -91,7 +92,7 @@ export class Pdp extends Singleton {
       errors.push(err);
     }
 
-    if (Settings.Pdp.debug) log(tag, '\nruleHandlerMap:', Pdp.ruleHandlerMap);
+    if (Settings.Pdp.debug) log(tag, 'ruleHandlerMap:', Pdp.ruleHandlerMap);
 
     if (errors.length) throw `\n${errors.join('\n')}`;
 
@@ -99,9 +100,11 @@ export class Pdp extends Singleton {
   }
 
   // TODO: Act on errors.
-  public static retrieveTargetAttributeMap(element: Rule | Policy | PolicySet, attributeMaps): any {
+  public static retrieveTargetAttributeMap(element: Rule | Policy | PolicySet, attributeMaps: any): any {
     const tag: string = `${Pdp.tag}.retrieveTargetAttributeMap()`;
     const container: AttributeMapContainer = attributeMaps[element.id];
+    if (Settings.Pdp.debug) log(tag, 'container:', container);
+
     if (container && container.version === element.version) return container.attributeMap;
 
     const targetQueryErrors: Error[] = [];
@@ -109,6 +112,7 @@ export class Pdp extends Singleton {
       version: element.version,
       attributeMap: Language.anyOfArrToFlatAttributeMap(element.target, targetQueryErrors),
     };
+    if (Settings.Pdp.debug) log(tag, `attributeMaps[${element.id}]:`, attributeMaps[element.id]);
     return attributeMaps[element.id].attributeMap;
   }
 
@@ -129,6 +133,12 @@ export class Pdp extends Singleton {
   // TODO: Act on errors.
   public static async EvaluateDecisionRequest(context: Context): Promise<Decision> {
     const tag: string = `${Pdp.tag}.evaluateDecisionRequest()`;
+    if (!Pdp.bootstrapped) {
+      // if (Settings.Pdp.isGateway) ctx.assert(Pep.bootstrapped, 500);
+      // else
+      throw Error(`Pdp has not been bootstrapped.`);
+    }
+
     if (Settings.Pdp.debug) log(tag, 'context:', context);
     const errors: Error[] = [];
     const policies: Policy[] = await Prp.retrieveContextPolicies(context, errors);

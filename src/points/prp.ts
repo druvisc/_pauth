@@ -110,6 +110,7 @@ export class Prp extends Singleton {
    */
   public static async bootstrap(): Promise<boolean> {
     const tag: string = `${Prp.tag}.Bootstrap()`;
+    if (Settings.Prp.debug) console.log(tag);
     const errors: Error[] = [];
     Prp.bootstrapped = false;
 

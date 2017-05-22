@@ -64,7 +64,7 @@ export class Language extends Singleton {
           return Decision.Indeterminate;
         }
 
-        query = str.substring(queryStart, queryEnd);
+        query = str.substring(queryStart + QueryStart.length, queryEnd);
         if (Settings.Language.debug) log(tag, 'query:', query);
         queries.push(query);
       }
@@ -92,7 +92,9 @@ export class Language extends Singleton {
   public static anyOfArrToFlatAttributeMap(anyOfArr: AnyOf[], errors: Error[]): any {
     const tag: string = `${Language.tag}.anyOfArrToQueries()`;
     const queries: string[] = Language.anyOfArrToQueries(anyOfArr, errors);
+    if (Settings.Pip.debug) log(tag, 'queries:', queries);
     const attributeMap: any = Language.queriesToFlatAttributeMap(queries);
+    if (Settings.Pip.debug) log(tag, 'attributeMap:', attributeMap);
     return attributeMap;
   }
 

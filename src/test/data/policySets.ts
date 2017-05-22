@@ -3,9 +3,8 @@ import { Effect } from '../../constants';
 import { obligation1 } from './obligations';
 import { advice1 } from './advice';
 
-export const policySet1: PolicySet = {
+export const policySet1 = {
   id: 1,
-  effect: Effect.Deny,
   target: [
     [
       `$.resource.id === '/products/alcohol'`
@@ -14,9 +13,8 @@ export const policySet1: PolicySet = {
   obligationIds: [obligation1.id],
 };
 
-export const policySet2: PolicySet = {
+export const policySet2 = {
   id: 2,
-  effect: Effect.Permit,
   target: [
     [
       `$.resource.id === '/products/alcohol'`
@@ -25,9 +23,8 @@ export const policySet2: PolicySet = {
   adviceIds: [advice1.id],
 };
 
-export const policySet3: PolicySet = {
+export const policySet3 = {
   id: 3,
-  effect: Effect.Permit,
   target: [
     [
       `$.resource.id === '/products/special-offers'`
@@ -35,6 +32,6 @@ export const policySet3: PolicySet = {
   ],
 };
 
-export const policySets: PolicySet[] = [
+export const policySets[] = [
   policySet1, policySet2, policySet3
 ];

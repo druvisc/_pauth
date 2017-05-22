@@ -1,4 +1,5 @@
 import { Singleton } from '../classes/singleton';
+import { Settings } from '../settings';
 
 export class Pap extends Singleton {
   private static readonly tag: string = 'Pap';
@@ -7,6 +8,7 @@ export class Pap extends Singleton {
 
   public static async bootstrap(): Promise<void> {
     const tag: string = `${Pap.tag}.bootstrap()`;
+    if (Settings.Prp.debug) console.log(tag);
     const errors: Error[] = [];
     Pap.bootstrapped = false;
 

@@ -54,6 +54,7 @@ export class Pep extends Singleton {
 
   public static async bootstrap(): Promise<void> {
     const tag: string = `${Pep.tag}.bootstrap()`;
+    if (Settings.Prp.debug) console.log(tag);
     const errors: Error[] = [];
     Pep.bootstrapped = false;
 

@@ -11,6 +11,7 @@ export class Pip extends Singleton {
 
   public static async bootstrap(): Promise<void> {
     const tag: string = `${Pip.tag}.bootstrap()`;
+    if (Settings.Prp.debug) console.log(tag);
     const errors: Error[] = [];
     Pip.bootstrapped = false;
 

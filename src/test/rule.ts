@@ -3,70 +3,62 @@ require('util').inspect.defaultOptions.depth = null;
 import 'mocha';
 import * as jp from 'jsonpath';
 import { expect } from 'chai';
+
+import { Pep } from '../points/pep';
 import { Pdp } from '../points/pdp';
-import { Effect, Decision, HttpMethod, CombiningAlgorithm } from '../constants';
-import { AnyOf, Action, Resource, Subject, Context, Rule, Policy, Obligation, } from '../interfaces';
-import { log, isCharQuoted, indexOfNth, listFlatAttributes } from '../utils';
+import { Prp } from '../points/prp';
+import { Pip } from '../points/pip';
+import { Pap } from '../points/pap';
 
-// TODO: The PDP could be made more sophisticated,
-// so it knows which policies to drop sooner,
-// i.e, same targets or conditions didn't apply.
+import { Bootstrap } from '../classes/bootstrap';
 
+import { obligations } from '../test/data/obligations';
+import { rules, ofAgeRuleAuthenticated, } from '../test/data/rules';
+import { advice } from '../test/data/advice';
+
+import { Context, } from '../interfaces';
+import { HttpMethod, Effect, Decision, } from '../constants';
+
+// Pep
+Pep._retrieveSubjectId = async () => 1;
+Pep._retrieveResourceId = async () => '/products/alcohol';
+Pep._retrieveObligations = async () => []; // obligations;
+Pep._retrieveAdvice = async () => []; // advice;
+
+// Pdp
+Pdp._retrieveRuleHandlers = async () => [];
+
+// Prp
+Prp._retrieveRules = async () => rules;
+Prp._retrievePolicies = async () => [];
+Prp._retrievePolicySets = async () => [];
+
+// Pip
+Pip._retrieveAttributes = async (context: Context, attributeMap: any) => { };
+
+Pep.bootstrap()
+  .then(Pdp.bootstrap)
+  .then(Prp.bootstrap)
+  .then(Pip.bootstrap)
+  .then(Pap.bootstrap)
+  .then(() => {
+    console.log('\nBootstrapped.');
+  });
 
 describe('Rule', () => {
   it('subject should be tested', async () => {
     const ofAge: number = 18;
 
-    const Role = {
-      User: 'user',
-      Unauthenticated: 'unauthenticated',
-    };
-
-    const Controller = {
-      Products: 'products'
-    };
-
-    const Products = {
-      Alcohol: 'alcohol',
-    };
-
-    const Alcohol = {
-      SpecialOffers: 'specialoffers',
-    };
-
-    const targetAuthenticatedAlcohol: AnyOf[] = [
-      [
-        [
-          `$.resource.id === '/${Controller.Products}/${Products.Alcohol}'`,
-          `$.subject.role !== '${Role.Unauthenticated}'`
-        ]
-      ]
-    ];
-
-    const ofAgeRuleAuthenticated: Rule = {
-      id: 1,
-      version: '0.0.1',
-      effect: Effect.Permit,
-      target: targetAuthenticatedAlcohol,
-      condition: [
-        [
-          [
-            `$.subject.age >= ${ofAge}`
-          ]
-        ]
-      ],
-    };
-
-    const action: Action = {
+    const action = {
       method: `${HttpMethod.Get.toUpperCase()}`,
     };
 
-    const resource: Resource = {
-      id: `/${Controller.Products}/${Products.Alcohol}`,
+    const resource = {
+      id: `/products/alcohol`,
     };
 
     const subject = {
-      role: `${Role.User}`,
+      role: 'user',
       age: 16,
     };
 
@@ -80,25 +72,15 @@ describe('Rule', () => {
       subject,
     };
 
-    let decision: Effect | Decision = await Pdp.evaluateRule(context, ofAgeRuleAuthenticated);
+    const rule = Bootstrap.getRule(ofAgeRuleAuthenticated, []);
+    console.log('rule:', rule);
+    let decision: Effect | Decision = await Pdp.evaluateRule(context, rule);
     expect(decision).to.be.equal(Decision.NotApplicable);
 
     subject.age = 21;
 
-    decision = await Pdp.evaluateRule(context, ofAgeRuleAuthenticated);
+    decision = await Pdp.evaluateRule(context, rule);
     expect(decision).to.be.equal(Effect.Permit);
-
-
-
-
-
-    // console.log(policy);
-
-    // const test4: string = "'$' === $.resource.currency && '$' === '$'";
-    // console.log(isCharQuoted(test4, indexOfNth(test4, '$', 1)));
-    // console.log(isCharQuoted(test4, indexOfNth(test4, '$', 2)));
-    // console.log(isCharQuoted(test4, indexOfNth(test4, '$', 3)));
-    // console.log(isCharQuoted(test4, indexOfNth(test4, '$', 4)));
   });
 });
 
@@ -281,3 +263,15 @@ describe('Rule', () => {
     // };
 
     // console.log(listFlatAttributes(subject, 'subject'));
+
+
+
+
+
+        // console.log(policy);
+
+    // const test4: string = "'$' === $.resource.currency && '$' === '$'";
+    // console.log(isCharQuoted(test4, indexOfNth(test4, '$', 1)));
+    // console.log(isCharQuoted(test4, indexOfNth(test4, '$', 2)));
+    // console.log(isCharQuoted(test4, indexOfNth(test4, '$', 3)));
+    // console.log(isCharQuoted(test4, indexOfNth(test4, '$', 4)));

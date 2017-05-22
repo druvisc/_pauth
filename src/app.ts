@@ -32,21 +32,20 @@ Prp._retrievePolicies = async () => [];
 Prp._retrievePolicySets = async () => [];
 
 // Pip
-Pip._retrieveAttributes = async (context: Context, attributeMap: any) => {};
+Pip._retrieveAttributes = async (context: Context, attributeMap: any) => { };
 
 
 const app: any = module.exports = new koa();
 
-Promise.all([
-  Pep.bootstrap(),
-  Pdp.bootstrap(),
-  Prp.bootstrap(),
-  Pip.bootstrap(),
-  Pap.bootstrap()
-]).then(() => {
-  log('\nBootstrapping finished successfully!');
-  app.use(logger());
-  app.use(Pep.EvaluateAuthorizationRequest);
-  app.listen(Settings.Pep.port);
-  log(`Listening to port ${Settings.Pep.port}.`);
-});
+Pep.bootstrap()
+  .then(Pdp.bootstrap)
+  .then(Prp.bootstrap)
+  .then(Pip.bootstrap)
+  .then(Pap.bootstrap)
+  .then(() => {
+    log('\nBootstrapping finished successfully!');
+    app.use(logger());
+    app.use(Pep.EvaluateAuthorizationRequest);
+    app.listen(Settings.Pep.port);
+    log(`Listening to port ${Settings.Pep.port}.`);
+  });

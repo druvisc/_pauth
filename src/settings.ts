@@ -52,6 +52,11 @@ class Settings extends Singleton {
     error: true,
     debug: true,
   };
+
+  public static readonly Bootstrap = {
+    error: true,
+    debug: true,
+  };
 }
 
 export { Settings };
