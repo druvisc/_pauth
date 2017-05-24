@@ -6,7 +6,7 @@ export class Pap extends Singleton {
 
   private static bootstrapped: boolean = false;
 
-  public static async bootstrap(): Promise<void> {
+  public static async bootstrap(): Promise<boolean> {
     const tag: string = `${Pap.tag}.bootstrap()`;
     if (Settings.Prp.debug) console.log(tag);
     const errors: Error[] = [];
@@ -15,5 +15,7 @@ export class Pap extends Singleton {
     // Placeholder
 
     Pap.bootstrapped = true;
+
+    return Pap.bootstrapped;
   }
 }

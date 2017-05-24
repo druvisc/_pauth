@@ -11,9 +11,8 @@ const SimpleRule1 = {
   target: `($.subject.id).includes('med.example.com')`,
 };
 
-
 export const rules = [
-  // SimpleRule1
+  SimpleRule1
 ];
 
 

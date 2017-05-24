@@ -1,5 +1,5 @@
 import {
-  log, isString, isUrl, isNumber, isArray, isFunction, isObject, includes, printArr,
+  log, isString, isUrl, isNumber, isArray, isFunction, isObject, includes, printStrArr,
   anyOf, isPresent,
 } from '../utils';
 import {
@@ -54,7 +54,7 @@ export class Bootstrap extends Singleton {
 
   private static readonly getEffect = (element: Rule | Obligation | Advice, type: string, errors: Error[]): Effect => {
     const effect: Effect = Bootstrap.normalizeEffect(element.effect);
-    if (!effect) errors.push(TypeError(`${type} #${element.id} has an invalid Effect (${element.effect}). Must be one of: ${printArr(Effects)}.`));
+    if (!effect) errors.push(TypeError(`${type} #${element.id} has an invalid Effect (${element.effect}). Must be one of: ${printStrArr(Effects)}.`));
     return effect;
   }
 
@@ -104,7 +104,7 @@ export class Bootstrap extends Singleton {
 
   private static readonly getCombiningAlgorithm = (element: Policy | PolicySet, type: string, errors: Error[]): CombiningAlgorithm => {
     const combiningAlgorithm: CombiningAlgorithm = Bootstrap.normalizeCombiningAlgorithm(element.combiningAlgorithm);
-    if (!combiningAlgorithm) errors.push(TypeError(`${type} #${element.id} has an invalid CombiningAlgorithm (${element.combiningAlgorithm}). Must be one of: ${printArr(CombiningAlgorithms)}.`));
+    if (!combiningAlgorithm) errors.push(TypeError(`${type} #${element.id} has an invalid CombiningAlgorithm (${element.combiningAlgorithm}). Must be one of: ${printStrArr(CombiningAlgorithms)}.`));
     if (combiningAlgorithm === CombiningAlgorithm.OnlyOneApplicable && type !== 'PolicySet') errors.push(TypeError(`${type} #${element.id} has an invalid combiningAlgorithm (${element.combiningAlgorithm}). CombiningAlgorithm '${CombiningAlgorithm[CombiningAlgorithm.OnlyOneApplicable]}' is only applicable to a PolicySet.`));
     return combiningAlgorithm;
   }
@@ -142,7 +142,7 @@ export class Bootstrap extends Singleton {
 
   private static readonly getHttpMethod = (element: Action, type: string, errors: Error[]): HttpMethod => {
     const httpMethod: HttpMethod = Bootstrap.normalizeHttpMethod(element.method);
-    if (!httpMethod) errors.push(TypeError(`${type} has an invalid HttpMethod (${element.method}). Must be one of: ${printArr(HttpMethods)}.`));
+    if (!httpMethod) errors.push(TypeError(`${type} has an invalid HttpMethod (${element.method}). Must be one of: ${printStrArr(HttpMethods)}.`));
     return httpMethod;
   }
 
@@ -217,21 +217,19 @@ export class Bootstrap extends Singleton {
 
   public static readonly getRule = (element: any, errors: Error[]): Rule => {
     const tag: string = `${Bootstrap.tag}.getRule()`;
-    if (Settings.Bootstrap.debug) console.log(tag);
+    if (Settings.Bootstrap.debug) console.log(tag, 'element:', element);
     const target: AnyOf[] = !element.target ? null : Bootstrap.getTarget(element, 'Rule', errors);
     if (target) {
-      if (Settings.Bootstrap.debug) console.log(tag, 'validate target');
       const targetErrors: Error[] = [];
       Language.anyOfArrToQueries(target, targetErrors);
-      if (targetErrors.length) errors.push(Error(`Rule #${element.id} has an invalid target: ${printArr(targetErrors, '\n')}.`));
+      if (targetErrors.length) errors.push(Error(`Rule #${element.id} has an invalid target: ${printStrArr(targetErrors, '\n')}.`));
     }
 
     const condition: AnyOf[] = !element.condition ? null : Bootstrap.getCondition(element, errors);
     if (condition) {
-      if (Settings.Bootstrap.debug) console.log(tag, 'validate condition');
       const conditionErrors: Error[] = [];
       Language.anyOfArrToQueries(condition, conditionErrors);
-      if (conditionErrors.length) errors.push(Error(`Rule #${element.id} has an condition: ${printArr(conditionErrors, '\n')}.`));
+      if (conditionErrors.length) errors.push(Error(`Rule #${element.id} has an condition: ${printStrArr(conditionErrors, '\n')}.`));
     }
 
     const ruleHandlerDefined: boolean = isPresent(element.handlerId);
@@ -254,13 +252,12 @@ export class Bootstrap extends Singleton {
 
   public static readonly getPolicy = (element: Policy, errors: Error[]): Policy => {
     const tag: string = `${Bootstrap.tag}.getPolicy()`;
-    if (Settings.Bootstrap.debug) console.log(tag);
+    if (Settings.Bootstrap.debug) console.log(tag, 'element:', element);
     const target: AnyOf[] = !element.target ? null : Bootstrap.getTarget(element, 'Policy', errors);
     if (target) {
-      if (Settings.Bootstrap.debug) console.log(tag, 'validate target');
       const targetErrors: Error[] = [];
       Language.anyOfArrToQueries(target, targetErrors);
-      if (targetErrors.length) errors.push(Error(`Policy #${element.id} has an invalid target: ${printArr(targetErrors, '\n')}.`));
+      if (targetErrors.length) errors.push(Error(`Policy #${element.id} has an invalid target: ${printStrArr(targetErrors, '\n')}.`));
     }
 
     return Object.assign({}, element, {
@@ -286,13 +283,12 @@ export class Bootstrap extends Singleton {
 
   public static readonly getPolicySet = (element: PolicySet, errors: Error[]): PolicySet => {
     const tag: string = `${Bootstrap.tag}.getPolicySet()`;
-    if (Settings.Bootstrap.debug) console.log(tag);
+    if (Settings.Bootstrap.debug) console.log(tag, 'element:', element);
     const target: AnyOf[] = !element.target ? null : Bootstrap.getTarget(element, 'PolicySet', errors);
     if (target) {
-      if (Settings.Bootstrap.debug) console.log(tag, 'validate target');
       const targetErrors: Error[] = [];
       Language.anyOfArrToQueries(target, targetErrors);
-      if (targetErrors.length) errors.push(Error(`PolicySet #${element.id} has an invalid target: ${printArr(targetErrors, '\n')}.`));
+      if (targetErrors.length) errors.push(Error(`PolicySet #${element.id} has an invalid target: ${printStrArr(targetErrors, '\n')}.`));
     }
 
     return Object.assign({}, element, {
@@ -318,7 +314,7 @@ export class Bootstrap extends Singleton {
 
   public static readonly getObligation = (element: Obligation, errors: Error[]): Obligation => {
     const tag: string = `${Bootstrap.tag}.getObligation()`;
-    if (Settings.Bootstrap.debug) console.log(tag);
+    if (Settings.Bootstrap.debug) console.log(tag, 'element:', element);
     return Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Obligation', errors),
       version: !isPresent(element.version) ? null : Bootstrap.getVersion(element, 'Obligation', errors),
@@ -333,7 +329,7 @@ export class Bootstrap extends Singleton {
 
   public static readonly getAdvice = (element: Advice, errors: Error[]): Advice => {
     const tag: string = `${Bootstrap.tag}.getAdvice()`;
-    if (Settings.Bootstrap.debug) console.log(tag);
+    if (Settings.Bootstrap.debug) console.log(tag, 'element:', element);
     return Object.assign({}, element, {
       id: Bootstrap.getId(element, 'Advice', errors),
       version: !isPresent(element.version) ? null : Bootstrap.getVersion(element, 'Advice', errors),

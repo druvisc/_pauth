@@ -18,7 +18,7 @@ import { policies, SimplePolicy1 } from '../test/data/policies';
 import { rules } from '../test/data/rules';
 import { advice } from '../test/data/advice';
 
-import { Context, } from '../interfaces';
+import { id, Context, Action, Resource, Subject, Environment, } from '../interfaces';
 import { HttpMethod, Effect, Decision, } from '../constants';
 
 // Pep
@@ -51,31 +51,35 @@ describe('Policy', () => {
       .then(() => {
         console.log('\nBootstrapped.');
       });
-    const action = {
+
+    const errors: Error[] = [];
+
+    const action: Action = Bootstrap.getAction({
       method: `${HttpMethod.Get.toUpperCase()}`,
-    };
+    }, errors);
 
-    const resource = {
-      id: `/products/alcohol`,
-    };
+    const resource: Resource = Bootstrap.getResource({
+      id: `/patients/1`,
+    }, errors);
 
-    const subject = {
-      id: 'bob@medi.example.com',
-    };
+    const subject: Subject = Bootstrap.getSubject({
+      id: 'drbob@med.example.com',
+    }, errors);
 
-    const context = {
+    const context: Context = Bootstrap.getContext({
       returnReason: true,
       returnPolicyList: false,
       returnAdviceResults: false,
       returnObligationResults: false,
-      // action,
-      // resource,
+      action,
+      resource,
       subject,
-    };
+    }, errors);
 
-    const policy = Bootstrap.getPolicy(SimplePolicy1, []);
-    // console.log('policy:', policy);
-    let decision: Effect | Decision = await Pdp.combineDecision(context as Context, policy, policy.combiningAlgorithm);
+    const id: id = 'SimplePolicy1';
+    const policy = Prp.getPolicy(id);
+    // console.log('SimplePolicy1:', policy);
+    const decision: Decision = await Pdp.combineDecision(context, policy);
     expect(decision).to.be.equal(Decision.Permit);
   });
 });

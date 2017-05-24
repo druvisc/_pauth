@@ -1,6 +1,6 @@
 import {
   log, retrieveElement, isPresent, isBoolean, isFunction, isString, includes,
-  evaluateHandler, isRule, isPolicy, isPolicySet, printArr, flatten, unique,
+  evaluateHandler, isRule, isPolicy, isPolicySet, printStrArr, flatten, unique,
 } from '../utils';
 import {
   id, version, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice,
@@ -21,6 +21,22 @@ export interface AttributeMapContainer {
   version: version;
   attributeMap: any;
 }
+
+// Should've been target [[[]]]
+// Pdp.evaluateTarget() element: { id: 'SimplePolicy1',
+//   version: '1.0',
+//   combiningAlgorithm: 'DenyOverrides',
+//   description: 'Medi Corp access control policy.',
+//   target: [],
+//   ruleIds: [ 'SimpleRule1' ],
+//   ruleUrls: [],
+//   obligationIds: [],
+//   adviceIds: [] }
+// Pdp.evaluateTarget() target: []
+// Pdp.evaluateAnyOfArr() anyOfArr: []
+// Pdp.evaluateTarget() targetValue: true
+// Pdp.combineDecision() targetMatch: true
+
 
 // TODO: Check what happens with the null id and target (wrapped set?).
 // TODO: Allow to add priority policies/handlers, to run before any applicable policies (check IP or whatever).
@@ -69,7 +85,7 @@ export class Pdp extends Singleton {
     return customCombiningAlgorithm;
   }
 
-  public static async bootstrap(): Promise<void> {
+  public static async bootstrap(): Promise<boolean> {
     const tag: string = `${Pdp.tag}.bootstrap()`;
     if (Settings.Pdp.debug) console.log(tag);
     const errors: Error[] = [];
@@ -78,17 +94,19 @@ export class Pdp extends Singleton {
     try {
       (await Pdp.retrieveRuleHandlers()).forEach(_ruleHandler => {
         const ruleHandler: RuleHandler = Bootstrap.getRuleHandler(_ruleHandler, errors);
-        Pdp.ruleHandlerMap[ruleHandler.id] = ruleHandler;
+        if (isPresent(ruleHandler.id)) Pdp.ruleHandlerMap[ruleHandler.id] = ruleHandler;
       });
     } catch (err) {
       errors.push(err);
     }
 
-    if (Settings.Pdp.debug) log(tag, 'ruleHandlerMap:', Pdp.ruleHandlerMap);
+    // if (Settings.Pdp.debug) log(tag, 'ruleHandlerMap:', Pdp.ruleHandlerMap);
 
-    if (errors.length) throw `\n${errors.join('\n')}`;
+    if (errors.length) throw `${errors.join('\n')}`;
 
     Pdp.bootstrapped = true;
+
+    return Pdp.bootstrapped;
   }
 
   // TODO: Act on errors.
@@ -104,7 +122,7 @@ export class Pdp extends Singleton {
       version: element.version,
       attributeMap: Language.anyOfArrToFlatAttributeMap(element.target, targetQueryErrors),
     };
-    if (Settings.Pdp.debug) log(tag, `attributeMaps[${element.id}]:`, attributeMaps[element.id]);
+    if (Settings.Pdp.debug) log(tag, `attributeMaps.${element.id}:`, attributeMaps[element.id]);
     return attributeMaps[element.id].attributeMap;
   }
 
@@ -153,7 +171,7 @@ export class Pdp extends Singleton {
   public static async combineDecision(context: Context, element: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
     const tag: string = `${Pdp.tag}.combineDecision()`;
-    if (Settings.Pdp.debug) log(tag, 'element:', element);
+    if (Settings.Pdp.debug) log(tag, 'element:\n', element);
     const policy: boolean = isPolicy(element);
 
     // The containing policySet doesn't have an id.
@@ -165,7 +183,7 @@ export class Pdp extends Singleton {
 
       const missingTargetAttributes: string[] = await Pip.retrieveAttributes(context, targetAttributeMap);
       if (missingTargetAttributes.length) {
-        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate ${policy ? 'Policy' : 'PolicySet'} #${element.id} target. Evaluating ${policy ? 'Policy' : 'PolicySet'} to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
+        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate ${policy ? 'Policy' : 'PolicySet'} #${element.id} target. Evaluating ${policy ? 'Policy' : 'PolicySet'} to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printStrArr(missingTargetAttributes, '\n')}.`);
         return Decision.Indeterminate;
       }
 
@@ -203,10 +221,12 @@ export class Pdp extends Singleton {
     return decision;
   }
 
-  public static async denyOverrides(context: Context, policyOrSet: Policy | PolicySet,
-    combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
-    const policySet: PolicySet = policy === null ? policyOrSet : null;
+  public static async denyOverrides(context: Context, element: Policy | PolicySet,
+    combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
+    const tag: string = `${Pdp.tag}.denyOverrides()`;
+    if (Settings.Pdp.debug) log(tag, 'element:\n', element);
+    const policy: Policy = isPolicy(element) ? element : null;
+    const policySet: PolicySet = policy === null ? element : null;
 
     let deny: boolean = false;
     let indeterminate: boolean = false;
@@ -236,10 +256,12 @@ export class Pdp extends Singleton {
     return Decision.NotApplicable;
   }
 
-  public static async permitOverrides(context: Context, policyOrSet: Policy | PolicySet,
-    combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
-    const policySet: PolicySet = policy === null ? policyOrSet : null;
+  public static async permitOverrides(context: Context, element: Policy | PolicySet,
+    combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
+    const tag: string = `${Pdp.tag}.permitOverrides()`;
+    if (Settings.Pdp.debug) log(tag, 'element:\n', element);
+    const policy: Policy = isPolicy(element) ? element : null;
+    const policySet: PolicySet = policy === null ? element : null;
 
     let permit: boolean = false;
     let indeterminate: boolean = false;
@@ -269,10 +291,12 @@ export class Pdp extends Singleton {
     return Decision.NotApplicable;
   }
 
-  public static async denyUnlessPermit(context: Context, policyOrSet: Policy | PolicySet,
-    combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
-    const policySet: PolicySet = policy === null ? policyOrSet : null;
+  public static async denyUnlessPermit(context: Context, element: Policy | PolicySet,
+    combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
+    const tag: string = `${Pdp.tag}.denyUnlessPermit()`;
+    if (Settings.Pdp.debug) log(tag, 'element:\n', element);
+    const policy: Policy = isPolicy(element) ? element : null;
+    const policySet: PolicySet = policy === null ? element : null;
 
     let permit: boolean = false;
     if (policySet) {
@@ -293,10 +317,12 @@ export class Pdp extends Singleton {
     return Decision.Deny;
   }
 
-  public static async permitUnlessDeny(context: Context, policyOrSet: Policy | PolicySet,
-    combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
-    const policySet: PolicySet = policy === null ? policyOrSet : null;
+  public static async permitUnlessDeny(context: Context, element: Policy | PolicySet,
+    combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
+    const tag: string = `${Pdp.tag}.permitUnlessDeny()`;
+    if (Settings.Pdp.debug) log(tag, 'element:\n', element);
+    const policy: Policy = isPolicy(element) ? element : null;
+    const policySet: PolicySet = policy === null ? element : null;
 
     let deny: boolean = false;
     if (policySet) {
@@ -317,10 +343,12 @@ export class Pdp extends Singleton {
     return Decision.Permit;
   }
 
-  public static async firstApplicable(context: Context, policyOrSet: Policy | PolicySet,
-    combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
-    const policySet: PolicySet = policy === null ? policyOrSet : null;
+  public static async firstApplicable(context: Context, element: Policy | PolicySet,
+    combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
+    const tag: string = `${Pdp.tag}.firstApplicable()`;
+    if (Settings.Pdp.debug) log(tag, 'element:\n', element);
+    const policy: Policy = isPolicy(element) ? element : null;
+    const policySet: PolicySet = policy === null ? element : null;
 
     let decision: Decision = Decision.NotApplicable;
     if (policySet) {
@@ -337,10 +365,12 @@ export class Pdp extends Singleton {
     return Decision.NotApplicable;
   }
 
-  public static async onlyOneApplicable(context: Context, policyOrSet: Policy | PolicySet,
-    combiningAlgorithm: CombiningAlgorithm = policyOrSet.combiningAlgorithm): Promise<Decision> {
-    const policy: Policy = isPolicySet(policyOrSet) ? null : policyOrSet;
-    const policySet: PolicySet = policy === null ? policyOrSet : null;
+  public static async onlyOneApplicable(context: Context, element: Policy | PolicySet,
+    combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
+    const tag: string = `${Pdp.tag}.onlyOneApplicable()`;
+    if (Settings.Pdp.debug) log(tag, 'element:\n', element);
+    const policy: Policy = isPolicy(element) ? element : null;
+    const policySet: PolicySet = policy === null ? element : null;
 
     let indeterminate: boolean = false;
     let result: Decision = Decision.NotApplicable;
@@ -374,13 +404,13 @@ export class Pdp extends Singleton {
 
   public static async evaluateRule(context: Context, element: Rule): Promise<Effect | Decision> {
     const tag: string = `${Pdp.tag}.evaluateRule()`;
-    if (Settings.Pdp.debug) log(tag, 'element:', element);
+    if (Settings.Pdp.debug) log(tag, 'element:\n', element);
 
     const targetAttributeMap: any = Pdp.retrieveTargetAttributeMap(element, Pdp.ruleTargetAttributeMaps);
     if (Settings.Pdp.debug) log(tag, 'targetAttributeMap:', targetAttributeMap);
     const missingTargetAttributes: string[] = await Pip.retrieveAttributes(context, targetAttributeMap);
     if (missingTargetAttributes.length) {
-      if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${element.id} target. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
+      if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${element.id} target. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printStrArr(missingTargetAttributes, '\n')}.`);
       return Decision.Indeterminate;
     }
 
@@ -415,7 +445,7 @@ export class Pdp extends Singleton {
     if (conditionAttributeMap) {
       const missingConditionAttributes: string[] = await Pip.retrieveAttributes(context, conditionAttributeMap);
       if (missingConditionAttributes.length) {
-        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${element.id} ${ruleHandlerDefined ? 'RuleHandler #' + element.handlerId : 'condition'}. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printArr(missingTargetAttributes, '\n')}.`);
+        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${element.id} ${ruleHandlerDefined ? 'RuleHandler #' + element.handlerId : 'condition'}. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printStrArr(missingTargetAttributes, '\n')}.`);
         return Decision.Indeterminate;
       }
     }
@@ -436,7 +466,7 @@ export class Pdp extends Singleton {
 
   public static evaluateTarget(context: Context, element: Rule | Policy | PolicySet): boolean | Decision {
     const tag: string = `${Pdp.tag}.evaluateTarget()`;
-    if (Settings.Pdp.debug) log(tag, 'element:', element);
+    // if (Settings.Pdp.debug) log(tag, 'element:\n', element);
     if (Settings.Pdp.debug) log(tag, 'target:', element.target);
     const targetValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, element.target);
     if (Settings.Pdp.debug) log(tag, 'targetValue:', targetValue);
@@ -445,7 +475,7 @@ export class Pdp extends Singleton {
 
   public static evaluateCondition(context: Context, element: Rule): boolean | Decision {
     const tag: string = `${Pdp.tag}.evaluateCondition()`;
-    if (Settings.Pdp.debug) log(tag, 'element:', element);
+    // if (Settings.Pdp.debug) log(tag, 'element:\n', element);
     if (Settings.Pdp.debug) log(tag, 'condition:', element.condition);
     const conditionValue: boolean | Decision = Pdp.evaluateAnyOfArr(context, element.condition);
     if (Settings.Pdp.debug) log(tag, 'conditionValue:', conditionValue);

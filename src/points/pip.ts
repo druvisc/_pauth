@@ -9,7 +9,7 @@ export class Pip extends Singleton {
 
   private static bootstrapped: boolean = false;
 
-  public static async bootstrap(): Promise<void> {
+  public static async bootstrap(): Promise<boolean> {
     const tag: string = `${Pip.tag}.bootstrap()`;
     if (Settings.Prp.debug) console.log(tag);
     const errors: Error[] = [];
@@ -21,9 +21,11 @@ export class Pip extends Singleton {
       errors.push(err);
     }
 
-    if (errors.length) throw `\n${errors.join('\n')}`;
+    if (errors.length) throw `${errors.join('\n')}`;
 
     Pip.bootstrapped = true;
+
+    return Pip.bootstrapped;
   }
 
   // Attributes accessor which MUST be defined by the end user.

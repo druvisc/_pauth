@@ -6,7 +6,8 @@ import { Settings } from '../settings';
 import { id, url, AnyOf, Context, Rule, Policy, PolicySet, } from '../interfaces';
 import { Operation, Operations, } from '../constants';
 import {
-  log, retrieveElement, retrieveElementByUrl, flatten, unique, isPresent, isPolicy, printArr,
+  log, retrieveElement, retrieveElementByUrl, flatten, unique, isPresent, isPolicy,
+  printStrArr, getValues, printArr,
 } from '../utils';
 
 const MatchAll: string = `$.context`;
@@ -51,6 +52,12 @@ export class Prp extends Singleton {
     const tag: string = `${Prp.tag}.retrievePolicies()`;
     const request: Promise<any[]> = Prp._retrievePolicies();
     return request;
+  }
+
+  public static getPolicy(identifier: id | url): Policy {
+    const tag: string = `${Prp.tag}.getPolicy()`;
+    const policy: Policy = Prp.policyMap[identifier] || Prp.externalPolicyMap[identifier];
+    return policy;
   }
 
   private static async retrievePolicySets(): Promise<any[]> {
@@ -108,16 +115,13 @@ export class Prp extends Singleton {
   }
   //
 
-  /**
-   * The bootstrap process has to ensure that after it successfully finishes,
-   * all the policies and elements are valid and useable for execution.
-   * Not only that.. caching rules, policies and policy sets and indexing (target).
-   */
+  // TODO: Validate urls before request?
   public static async bootstrap(): Promise<boolean> {
     const tag: string = `${Prp.tag}.Bootstrap()`;
     if (Settings.Prp.debug) console.log(tag);
-    const errors: Error[] = [];
     Prp.bootstrapped = false;
+
+    const errors: Error[] = [];
 
     try {
       (await Prp.retrieveRules()).forEach(_rule => {
@@ -168,27 +172,32 @@ export class Prp extends Singleton {
       errors.push(err);
     }
 
+    // if (Settings.Prp.debug) log(tag, 'ruleMap:\n', Prp.ruleMap);
+    // if (Settings.Prp.debug) log(tag, 'policyMap:\n', Prp.policyMap);
+    // if (Settings.Prp.debug) log(tag, 'policySetMap:\n', Prp.policySetMap);
 
-    // TODO: CHECK IF RULE IDS MATCH UP WITH RULES
-    // TODO: CHECK IF POLICY IDS MATCH UP WITH POLICIES
-    // ETC
-    if (Settings.Prp.debug) log(tag, 'ruleMap:\n', Prp.ruleMap, '\n');
-    if (Settings.Prp.debug) log(tag, 'policyMap:\n', Prp.policyMap, '\n');
-    if (Settings.Prp.debug) log(tag, 'policySetMap:\n', Prp.policySetMap, '\n');
+    const evaluatedPolicies: Policy[] = getValues(Prp.policyMap).map(policy =>
+      Prp.policyMap[policy.id] = Prp.evaluatePolicy(policy, errors));
+    if (Settings.Prp.debug) printArr(`${tag} evaluatedPolicies:`, evaluatedPolicies);
 
-    const evaluatedPolicies: Policy[] = Object.keys(Prp.policyMap).map(policyId =>
-      Prp.evaluatePolicy(Prp.policyMap[policyId], errors));
-    const evaluatedPolicySets: PolicySet[] = Object.keys(Prp.policySetMap).map(policySetId =>
-      Prp.evaluatePolicySet(Prp.policySetMap[policySetId], errors));
+    const evaluatedExternalPolicies: Policy[] = getValues(Prp.externalPolicyMap).map(externalPolicy =>
+      Prp.externalPolicyMap[externalPolicy.id] = Prp.evaluatePolicy(externalPolicy, errors));
+    if (Settings.Prp.debug) printArr(`${tag} evaluatedExternalPolicies:`, evaluatedExternalPolicies);
 
-    if (Settings.Prp.debug) log(tag, 'evaluatedPolicies:\n', printArr(evaluatedPolicies, '\n'), '\n');
-    if (Settings.Prp.debug) log(tag, 'evaluatedPolicySets:\n', printArr(evaluatedPolicySets, '\n'), '\n\n');
+    const evaluatedPolicySets: Policy[] = getValues(Prp.policySetMap).map(policySet =>
+      Prp.policySetMap[policySet.id] = Prp.evaluatePolicySet(policySet, errors));
+    if (Settings.Prp.debug) printArr(`${tag} evaluatedPolicySets:`, evaluatedPolicySets);
 
-    // targetQueryErrors are already reported through Bootstrap.getRule, Bootstrap.getPolicy and Bootstrap.getPolicySet.
+    const evaluatedExternalPolicySets: Policy[] = getValues(Prp.externalPolicySetMap).map(externalPolicySet =>
+      Prp.externalPolicySetMap[externalPolicySet.id] = Prp.evaluatePolicySet(externalPolicySet, errors));
+    if (Settings.Prp.debug) printArr(`${tag} evaluatedExternalPolicySets:`, evaluatedExternalPolicySets);
+
+    // targetQueryErrors are already reported through Bootstrap.getRule,
+    // Bootstrap.getPolicy and Bootstrap.getPolicySet.
     const targetQueryErrors: Error[] = [];
     Prp.createTargetMaps(targetQueryErrors);
 
-    if (errors.length) throw `\n${printArr(errors, '\n')}`;
+    if (errors.length) throw errors;
 
     Prp.bootstrapped = true;
 
@@ -210,13 +219,33 @@ export class Prp extends Singleton {
   private static evaluatePolicy(element: Policy, errors: Error[], parent: PolicySet = {} as PolicySet): Policy {
     const tag: string = `${Prp.tag}.evaluatePolicy()`;
     if (Settings.Prp.debug) log(tag, 'element:', element);
+    const noRuleIds: id[] = [];
+    const ruleIds: id[] = element.ruleIds.filter(id => {
+      if (!Prp.ruleMap[id] && !Prp.externalRuleMap[id]) {
+        noRuleIds.push(id);
+        return false;
+      }
+      return true;
+    });
+    const noRuleUrls: id[] = [];
+    const ruleUrls: url[] = element.ruleUrls.filter(url => {
+      if (!Prp.ruleMap[url] && !Prp.externalRuleMap[url]) {
+        noRuleUrls.push(url);
+        return false;
+      }
+      return true;
+    });
+
+    if (noRuleIds.length) errors.push(Error(`Policy #${element.id} through 'ruleIds' is referencing non existing rules: ${printStrArr(noRuleIds)}.`));
+    if (noRuleUrls.length) errors.push(Error(`Policy #${element.id} through 'ruleUrls' is referencing non existing rules: ${printStrArr(noRuleUrls)}.`));
+
     return Object.assign({}, element, {
       target: Prp.retrievePolicyTarget(element, errors),
       rules: [
-        ...element.ruleIds.map(id => Object.assign({}, Prp.ruleMap[id], {
+        ...ruleIds.map(id => Object.assign({}, Prp.ruleMap[id], {
           target: Prp.retrieveRuleTarget(Prp.ruleMap[id], element, errors),
         })),
-        ...element.ruleUrls.map(url => Object.assign({}, Prp.externalRuleMap[url], {
+        ...ruleUrls.map(url => Object.assign({}, Prp.externalRuleMap[url], {
           target: Prp.retrieveRuleTarget(Prp.externalRuleMap[url], element, errors),
         }))
       ]
@@ -226,15 +255,57 @@ export class Prp extends Singleton {
   private static evaluatePolicySet(element: PolicySet, errors: Error[], parent: PolicySet = {} as PolicySet): PolicySet {
     const tag: string = `${Prp.tag}.evaluatePolicySet()`;
     if (Settings.Prp.debug) log(tag, 'element:', element);
+
+    const noPolicyIds: id[] = [];
+    const policyIds: id[] = element.policyIds.filter(id => {
+      if (!Prp.policyMap[id] && !Prp.externalPolicyMap[id]) {
+        noPolicyIds.push(id);
+        return false;
+      }
+      return true;
+    });
+
+    const noPolicyUrls: url[] = [];
+    const policyUrls: url[] = element.policyUrls.filter(url => {
+      if (!Prp.policyMap[url] && !Prp.externalPolicyMap[url]) {
+        noPolicyUrls.push(url);
+        return false;
+      }
+      return true;
+    });
+
+    const noPolicySetIds: id[] = [];
+    const policySetIds: id[] = element.policySetIds.filter(id => {
+      if (!Prp.policySetMap[id] && !Prp.externalPolicySetMap[id]) {
+        noPolicySetIds.push(id);
+        return false;
+      }
+      return true;
+    });
+
+    const noPolicySetUrls: url[] = [];
+    const policySetUrls: url[] = element.policySetUrls.filter(url => {
+      if (!Prp.policySetMap[url] && !Prp.externalPolicySetMap[url]) {
+        noPolicySetUrls.push(url);
+        return false;
+      }
+      return true;
+    });
+
+    if (noPolicyIds.length) errors.push(Error(`PolicySet #${element.id} through 'policyIds' is referencing non existing policies: ${printStrArr(noPolicyIds)}.`));
+    if (noPolicyUrls.length) errors.push(Error(`PolicySet #${element.id} through 'policyUrls' is referencing non existing policies: ${printStrArr(noPolicyUrls)}.`));
+    if (noPolicySetIds.length) errors.push(Error(`PolicySet #${element.id} through 'policySetIds' is referencing non existing policySets: ${printStrArr(noPolicySetIds)}.`));
+    if (noPolicySetUrls.length) errors.push(Error(`PolicySet #${element.id} through 'policySetUrls' is referencing non existing policySets: ${printStrArr(noPolicySetUrls)}.`));
+
     return Object.assign({}, element, {
       target: Prp.retrievePolicySetTarget(element, errors),
       policies: [
-        ...element.policyIds.map(id => Prp.evaluatePolicy(Prp.policyMap[id], errors, element)),
-        ...element.policyUrls.map(url => Prp.evaluatePolicy(Prp.externalPolicyMap[url], errors, element))
+        ...policyIds.map(id => Prp.evaluatePolicy(Prp.policyMap[id], errors, element)),
+        ...policyUrls.map(url => Prp.evaluatePolicy(Prp.externalPolicyMap[url], errors, element))
       ],
       policySets: [
-        ...element.policySetIds.map(id => Prp.evaluatePolicySet(Prp.policySetMap[id], errors, element)),
-        ...element.policySetUrls.map(url => Prp.evaluatePolicySet(Prp.externalPolicySetMap[url], errors, element))
+        ...policySetIds.map(id => Prp.evaluatePolicySet(Prp.policySetMap[id], errors, element)),
+        ...policySetUrls.map(url => Prp.evaluatePolicySet(Prp.externalPolicySetMap[url], errors, element))
       ],
     });
   }
@@ -247,10 +318,10 @@ export class Prp extends Singleton {
     Prp.elementsToTargetMap(Prp.externalPolicyMap, Prp.externalPolicyTargetMap, Prp.externalPolicyMatchAll, 'Policy', errors);
     Prp.elementsToTargetMap(Prp.externalPolicySetMap, Prp.externalPolicySetTargetMap, Prp.externalPolicySetMatchAll, 'PolicySet', errors);
 
-    if (Settings.Prp.debug) log(tag, 'policyTargetMap:\n', Prp.policyTargetMap, '\n');
-    if (Settings.Prp.debug) log(tag, 'policySetTargetMap:\n', Prp.policySetTargetMap, '\n');
-    if (Settings.Prp.debug) log(tag, 'externalPolicyTargetMap:\n', Prp.externalPolicyTargetMap, '\n');
-    if (Settings.Prp.debug) log(tag, 'externalPolicySetTargetMap:\n', Prp.externalPolicySetTargetMap, '\n\n');
+    if (Settings.Prp.debug) log(tag, 'policyTargetMap:\n', Prp.policyTargetMap);
+    if (Settings.Prp.debug) log(tag, 'policySetTargetMap:\n', Prp.policySetTargetMap);
+    if (Settings.Prp.debug) log(tag, 'externalPolicyTargetMap:\n', Prp.externalPolicyTargetMap);
+    if (Settings.Prp.debug) log(tag, 'externalPolicySetTargetMap:\n', Prp.externalPolicySetTargetMap);
   }
 
   private static elementsToTargetMap(elementMap: any, targetMap: any, matchAll: any[], type: string, errors: Error[]): void {
@@ -258,12 +329,12 @@ export class Prp extends Singleton {
     Object.keys(elementMap).forEach(identifier => Prp.elementToTargetMap(elementMap[identifier], targetMap, identifier, matchAll, type, errors));
   }
 
-  // Will be used when PAP pushes policies.
+  // TODO: Will be used when PAP pushes policies.
   private static elementToTargetMap(element: Policy | PolicySet, identifier: id | url, targetMap: any, matchAll: any[], type: string, errors: Error[]): void {
     const tag: string = `${Prp.tag}.elementToTargetMap()`;
     const queryErrors: Error[] = [];
-    const queries: string[] = Language.anyOfArrToQueries(element.target, queryErrors);
-    if (queryErrors.length) errors.push(Error(`${type} #${identifier} has an invalid target: ${printArr(queryErrors, '\n')}.`));
+    const queries: string[] = Language.anyOfArrToQueries(element.target, queryErrors, false);
+    if (queryErrors.length) errors.push(Error(`${type} #${identifier} has an invalid target: ${printStrArr(queryErrors, '\n')}.`));
     else if (!queries.length) matchAll.push(identifier);
     else queries.forEach(query => targetMap[query] = targetMap[query] ? [...targetMap[query], identifier] : [identifier]);
   }
@@ -373,7 +444,7 @@ export class Prp extends Singleton {
 
     // TODO: Implement Operation.Intersection, probably improve Union to remove duplication.
     if (operation === Operation.Union) return flatten((elements as any[]).map(e => e.target));
-    else errors.push(TypeError(`${type} #${element.id} has an invalid targetOperation (${element.targetOperation}). Must be one of: ${printArr(Operations)}`));
+    else errors.push(TypeError(`${type} #${element.id} has an invalid targetOperation (${element.targetOperation}). Must be one of: ${printStrArr(Operations)}`));
     return null;
   }
 }

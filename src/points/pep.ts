@@ -7,7 +7,8 @@ import {
   id, Context, Policy, PolicySet, Obligation, Advice, HandlerResult,
 } from '../interfaces';
 import {
-  log, retrieveElement, flatten, unique, evaluateHandler, isPolicySet, toFirstUpperCase, printArr,
+  log, retrieveElement, flatten, unique, evaluateHandler, isPolicySet, toFirstUpperCase,
+  printStrArr, isPresent,
 } from '../utils';
 import { Pdp } from './pdp';
 import { Pip } from './pip';
@@ -52,7 +53,7 @@ export class Pep extends Singleton {
     return advice;
   }
 
-  public static async bootstrap(): Promise<void> {
+  public static async bootstrap(): Promise<boolean> {
     const tag: string = `${Pep.tag}.bootstrap()`;
     if (Settings.Pep.debug) console.log(tag);
     const errors: Error[] = [];
@@ -61,26 +62,29 @@ export class Pep extends Singleton {
     try {
       (await Pep.retrieveObligations()).forEach(_obligation => {
         const obligation: Obligation = Bootstrap.getObligation(_obligation, errors);
-        Pep.obligationMap[obligation.id] = obligation;
+        if (!isPresent(obligation.id)) Pep.obligationMap[obligation.id] = obligation;
       });
     } catch (err) {
       errors.push(err);
     }
-    if (Settings.Pep.debug) log(tag, 'obligationMap:\n', Pep.obligationMap, '\n');
 
     try {
       (await Pep.retrieveAdvice()).forEach(_advice => {
         const advice: Advice = Bootstrap.getAdvice(_advice, errors);
-        Pep.adviceMap[advice.id] = advice;
+        if (!isPresent(advice.id)) Pep.adviceMap[advice.id] = advice;
       });
     } catch (err) {
       errors.push(err);
     }
-    if (Settings.Pep.debug) log(tag, 'adviceMap:\n', Pep.adviceMap, '\n');
 
-    if (errors.length) throw `\n${errors.join('\n')}`;
+    // if (Settings.Pep.debug) log(tag, 'obligationMap:', Pep.obligationMap);
+    // if (Settings.Pep.debug) log(tag, 'adviceMap:', Pep.adviceMap);
+
+    if (errors.length) throw `${errors.join('\n')}`;
 
     Pep.bootstrapped = true;
+
+    return Pep.bootstrapped;
   }
 
   public static async EvaluateAuthorizationRequest(ctx: any, next: Function): Promise<void> {
@@ -155,7 +159,7 @@ export class Pep extends Singleton {
       Pep.evaluatePepBias(context);
 
       if (context.decision === Decision.Deny) {
-        const reason: string = `Unfulfilled obligations: ${printArr(unfulfilledObligations.map(obligation => obligation.id))}.`;
+        const reason: string = `Unfulfilled obligations: ${printStrArr(unfulfilledObligations.map(obligation => obligation.id))}.`;
         context.reason = !context.reason ? reason : `${reason}\n${context.reason}`;
       } else {
         context.obligationResults = await Pep.evaluateAdvice(context);
@@ -191,7 +195,7 @@ export class Pep extends Singleton {
       } else if (!obligation.effect || obligation.effect === context.decision) {
         const missingAttributes: string[] = await Pip.retrieveAttributes(context, obligation.attributeMap);
         if (missingAttributes.length) {
-          container.err = `Couldn't retrieve these attributes to evaluate Obligation #${obligation.id}: ${printArr(missingAttributes)}]`;
+          container.err = `Couldn't retrieve these attributes to evaluate Obligation #${obligation.id}: ${printStrArr(missingAttributes)}]`;
         } else {
           try {
             container.res = await evaluateHandler(context, obligation, 'Obligation', Pip);
@@ -225,7 +229,7 @@ export class Pep extends Singleton {
       } else if (!advice.effect || advice.effect === context.decision) {
         const missingAttributes: string[] = await Pip.retrieveAttributes(context, advice.attributeMap);
         if (missingAttributes.length) {
-          container.err = `Couldn't retrieve these attributes to evaluate Advice #${advice.id}: ${printArr(missingAttributes)}.`;
+          container.err = `Couldn't retrieve these attributes to evaluate Advice #${advice.id}: ${printStrArr(missingAttributes)}.`;
         } else {
           try {
             container.res = await evaluateHandler(context, advice, 'advice', Pip);

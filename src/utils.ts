@@ -7,7 +7,6 @@ import { Language } from './classes/language';
 
 export const log = console.log; // console.log(JSON.stringify(myObject, null, 4));
 
-
 /** String operations */
 export const ignoreCaseEqual = (str1: string, str2: string): boolean =>
   str1.toUpperCase() === str2.toUpperCase();
@@ -60,8 +59,9 @@ export const getPairIndex = (start: string, end: string, str: string, position: 
 export const includes = (arr: any[], v: any): boolean => arr.indexOf(v) !== -1;
 export const flatten = (arr: any[][]): any[] => [].concat.apply([], arr);
 export const unique = (arr: any[]): any[] => arr.reduce((a, b) => includes(a, b) ? a : [...a, b], []);
-export const printArr = (arr: any[], delimiter: string = ', ', wrapStart: string = "'", wrapEnd: string = wrapStart) =>
+export const printStrArr = (arr: any[], delimiter: string = ', ', wrapStart: string = "'", wrapEnd: string = wrapStart): string =>
   `[${arr.map(v => `${wrapStart}${v}${wrapEnd}`).join(delimiter)}]`;
+export const printArr = (title: string, arr: any[]): void => { console.log(title); arr.forEach(v => log(v)); };
 /** Array operations */
 
 

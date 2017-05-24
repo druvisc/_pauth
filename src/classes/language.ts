@@ -1,7 +1,7 @@
 import * as jp from 'jsonpath';
 import {
   log, isString, isPrimitive, flatten, unique, isObject, isCharQuoted, getPairIndex,
-  includes, printArr, listFlatAttributes,
+  includes, printStrArr, listFlatAttributes,
 } from '../utils';
 import { Context, Rule, Policy, PolicySet, AnyOf, } from '../interfaces';
 import { Decision } from '../constants';
@@ -100,11 +100,13 @@ export class Language extends Singleton {
     return attributeMap;
   }
 
-  public static anyOfArrToQueries(anyOfArr: AnyOf[], errors: Error[]): string[] {
+  // Added a flag to avoid double debug information within Prp.bootstrap
+  // (getRule, getPolicy, getPolicySet) and then in Prp.elementToTargetMap (target validation).
+  public static anyOfArrToQueries(anyOfArr: AnyOf[], errors: Error[], debug: boolean = true): string[] {
     const tag: string = `${Language.tag}.anyOfArrToQueries()`;
-    if (Settings.Language.error) log(tag, 'anyOfArr:', anyOfArr);
+    if (Settings.Language.debug && debug) log(tag, 'anyOfArr:', anyOfArr);
     const expressions: string[] = flatten(flatten(flatten(anyOfArr)));
-    if (Settings.Language.error) log(tag, 'expressions:', printArr(expressions, '\n'));
+    if (Settings.Language.debug && debug) log(tag, 'expressions:', printStrArr(expressions, '\n'));
     const uniqueQueries: string[] = [];
     for (const expression of expressions) {
       const queries: string[] | Decision = Language.extractQueries(expression);
