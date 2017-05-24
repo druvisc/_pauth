@@ -1,19 +1,19 @@
 import {
-  Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, XACMLElement,
-} from '../constants';
+  log, retrieveElement, isPresent, isBoolean, isFunction, isString, includes,
+  evaluateHandler, isRule, isPolicy, isPolicySet, printArr, flatten, unique,
+} from '../utils';
 import {
   id, version, url, Context, RuleHandler, Rule, Policy, PolicySet, Obligation, Advice,
   CustomCombiningAlgorithm, AnyOf, AllOf,
 } from '../interfaces';
+import {
+  Effect, CombiningAlgorithm, Decision, CombiningAlgorithms, Indeterminate, XACMLElement,
+} from '../constants';
 import { Singleton } from '../classes/singleton';
 import { Bootstrap } from '../classes/bootstrap';
 import { Language } from '../classes/language';
 import { Request } from '../classes/request';
 import { Settings } from '../settings';
-import {
-  log, retrieveElement, isPresent, isBoolean, isFunction, isString, includes,
-  evaluateHandler, isRule, isPolicy, isPolicySet, printArr, flatten, unique,
-} from '../utils';
 import { Prp } from './prp';
 import { Pip } from './pip';
 
@@ -22,17 +22,10 @@ export interface AttributeMapContainer {
   attributeMap: any;
 }
 
-// TODO:!!!  THE TARGET CAN BE SPECIFIED EMTPY.. APLIES TO EVERYTHING!!!
-// TODO:!!! Just implement a fuckin Target result enum - Match, No match, Indeterminate !!!.
-
-
-// TODO: What happens when it's not enough with the retrieved Pip attributes?
 // TODO: Check what happens with the null id and target (wrapped set?).
 // TODO: Allow to add priority policies/handlers, to run before any applicable policies (check IP or whatever).
-// TODO: Remove context where it's not necessary?
 // TODO: Add Indeterminate(DP, D, P)?
 // TODO: Cache in the future.
-// TODO: Allow to OR obligations and advice depending on their failure?
 export class Pdp extends Singleton {
   private static readonly tag: string = 'Pdp';
 
@@ -41,7 +34,6 @@ export class Pdp extends Singleton {
   private static readonly ruleHandlerMap = {};
   private static readonly customCombiningAlgorithmMap = {};
 
-  // TODO: Implement attributeMap caching together with the element version, getters are version checking.
   private static readonly ruleTargetAttributeMaps = {};
   private static readonly ruleConditionAttributeMaps = {};
 
@@ -79,7 +71,7 @@ export class Pdp extends Singleton {
 
   public static async bootstrap(): Promise<void> {
     const tag: string = `${Pdp.tag}.bootstrap()`;
-    if (Settings.Prp.debug) console.log(tag);
+    if (Settings.Pdp.debug) console.log(tag);
     const errors: Error[] = [];
     Pdp.bootstrapped = false;
 

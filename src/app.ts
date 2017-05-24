@@ -1,7 +1,7 @@
 require('util').inspect.defaultOptions.depth = null;
 
-const koa = require('koa');
-const logger = require('koa-logger');
+import * as koa from 'koa';
+import * as logger from 'koa-logger';
 
 import { Pep } from './points/pep';
 import { Pdp } from './points/pdp';

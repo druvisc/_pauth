@@ -3,35 +3,66 @@ import { Effect } from '../../constants';
 import { obligation1 } from './obligations';
 import { advice1 } from './advice';
 
-const ofAge: number = 18;
-
-export const rule1 = {
-  id: 1,
-  version: '0.0.1',
-  effect: Effect.Deny,
-  target: `($.resource.id) === '/products/alcohol'`,
-  condition: `($.subject.age) < ${ofAge}`,
-  obligationIds: [obligation1.id],
-};
-
-export const ofAgeRuleAuthenticated = {
-  id: 2,
-  version: '0.0.1',
+const SimpleRule1 = {
+  id: 'SimpleRule1',
+  version: '1.0',
+  description: 'Any subject with an e-mail name in the med.example.com domain can perform any action on any resource.',
   effect: Effect.Permit,
-  target: `($.resource.id) === '/products/alcohol' && ($.subject.role) !== 'unauthenticated'`,
-  condition: `($.subject.age) >= ${ofAge}`,
-  adviceIds: [advice1.id],
+  target: `($.subject.id).includes('med.example.com')`,
 };
 
-export const rule3 = {
-  id: 3,
-  version: '0.0.1',
-  effect: Effect.Permit,
-  target: `($.resource.id) === '/products/special-offers'`,
-};
 
 export const rules = [
-  // rule1,
-  ofAgeRuleAuthenticated,
-  rule3
+  // SimpleRule1
 ];
+
+
+
+
+
+
+
+
+
+        // const email: any = {};
+
+    // const obligation: Obligation = {
+    //   id: 'email',
+    //   effect: Effect.Permit,
+    //   attributeMap: {
+    //     resource: ['email'],
+    //     subject: ['id'],
+    //   },
+    //   handler: (context, self, pip) =>
+    //     email.send({
+    //       text: `Your medical record has been accessed by: ${context.subject.id}`
+    //     })
+    // };
+
+
+    // const policy: Policy = {
+    //   id: 3,
+    //   version: '1.0',
+    //   combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+    //   description: 'Policy for any medical record in the http://www.med.example.com/schemas/record.xsd namespace.',
+    //   // Todo, what is an empty target? [[[]]] or undefined?
+    //   target: [
+    //     [
+    //       [
+    //         "$resource.targetNamespace === 'urn:example:med:schemas:record'"
+    //       ]
+    //     ],
+    //     [
+    //       [
+    //         "'$resource.contentSelector === 'record.medical'"
+    //       ]
+    //     ],
+    //     [
+    //       [
+    //         "$action.actionId === 'write'"
+    //       ]
+    //     ]
+    //   ],
+    //   ruleIds: [3],
+    //   obligationIds: ['email'],
+    // };

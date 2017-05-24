@@ -1,4 +1,4 @@
-const validUrl = require('valid-url');
+import * as validUrl from 'valid-url';
 import { id, url, handler, AnyOf, Context, RuleHandler, Obligation, Advice, } from './interfaces';
 import { Request } from './classes/request';
 import { Pip } from './points/pip';

@@ -1,4 +1,4 @@
-const request = require('request-promise');
+import * as request from 'request-promise';
 import { Singleton } from './singleton';
 import { Settings } from '../settings';
 import { isString, isObject } from '../utils';

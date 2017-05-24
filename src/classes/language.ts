@@ -1,18 +1,17 @@
 import * as jp from 'jsonpath';
 import {
-  log, substrCount, indexOfNth, isString, isPrimitive, isBoolean, flatten, unique,
-  isObject, isCharQuoted, getPairIndex, includes, printArr, listFlatAttributes,
+  log, isString, isPrimitive, flatten, unique, isObject, isCharQuoted, getPairIndex,
+  includes, printArr, listFlatAttributes,
 } from '../utils';
-import { Singleton } from './singleton';
-import { Settings } from '../settings';
 import { Context, Rule, Policy, PolicySet, AnyOf, } from '../interfaces';
 import { Decision } from '../constants';
+import { Settings } from '../settings';
+import { Singleton } from './singleton';
 
 const QueryStart: string = '($.';
 const QueryEnd: string = ')';
 const QueryEndPair: string = '(';
 
-// TODO: Needs testing.
 export class Language extends Singleton {
   private static readonly tag: string = 'Language';
 
@@ -147,9 +146,3 @@ export class Language extends Singleton {
     return query.slice(1, -QueryEnd.length);
   }
 }
-
-
-  // public static QueryToAttribute(str: string): string {
-  //   const split: string[] = str.split('.');
-  //   return split[1];
-  // }

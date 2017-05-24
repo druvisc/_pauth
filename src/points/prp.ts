@@ -9,6 +9,7 @@ import {
   log, retrieveElement, retrieveElementByUrl, flatten, unique, isPresent, isPolicy, printArr,
 } from '../utils';
 
+const MatchAll: string = `$.context`;
 // TODO: Create all points like PEP which can be individual services.
 // TODO: Add a PUT like method to allow modifying policies from the PAP on the fly.
 // TODO: Perhaps loading all elements is too much? Potentially could be huge.
@@ -27,9 +28,13 @@ export class Prp extends Singleton {
 
   private static readonly policyTargetMap = {};
   private static readonly policySetTargetMap = {};
+  private static readonly policyMatchAll: any[] = [];
+  private static readonly policySetMatchAll: any[] = [];
 
   private static readonly externalPolicyTargetMap = {};
   private static readonly externalPolicySetTargetMap = {};
+  private static readonly externalPolicyMatchAll: any[] = [];
+  private static readonly externalPolicySetMatchAll: any[] = [];
 
   // Multiple element accessors which MUST be defined by the end user.
   public static _retrieveRules = () => retrieveElement('Rules', '_retrieveRules', 'Prp');
@@ -163,6 +168,10 @@ export class Prp extends Singleton {
       errors.push(err);
     }
 
+
+    // TODO: CHECK IF RULE IDS MATCH UP WITH RULES
+    // TODO: CHECK IF POLICY IDS MATCH UP WITH POLICIES
+    // ETC
     if (Settings.Prp.debug) log(tag, 'ruleMap:\n', Prp.ruleMap, '\n');
     if (Settings.Prp.debug) log(tag, 'policyMap:\n', Prp.policyMap, '\n');
     if (Settings.Prp.debug) log(tag, 'policySetMap:\n', Prp.policySetMap, '\n');
@@ -199,6 +208,8 @@ export class Prp extends Singleton {
   }
 
   private static evaluatePolicy(element: Policy, errors: Error[], parent: PolicySet = {} as PolicySet): Policy {
+    const tag: string = `${Prp.tag}.evaluatePolicy()`;
+    if (Settings.Prp.debug) log(tag, 'element:', element);
     return Object.assign({}, element, {
       target: Prp.retrievePolicyTarget(element, errors),
       rules: [
@@ -213,6 +224,8 @@ export class Prp extends Singleton {
   }
 
   private static evaluatePolicySet(element: PolicySet, errors: Error[], parent: PolicySet = {} as PolicySet): PolicySet {
+    const tag: string = `${Prp.tag}.evaluatePolicySet()`;
+    if (Settings.Prp.debug) log(tag, 'element:', element);
     return Object.assign({}, element, {
       target: Prp.retrievePolicySetTarget(element, errors),
       policies: [
@@ -229,10 +242,10 @@ export class Prp extends Singleton {
   private static createTargetMaps(errors: Error[]): void {
     const tag: string = `${Prp.tag}.createTargetMaps()`;
 
-    Prp.elementsToTargetMap(Prp.policyMap, Prp.policyTargetMap, 'Policy', errors);
-    Prp.elementsToTargetMap(Prp.policySetMap, Prp.policySetTargetMap, 'PolicySet', errors);
-    Prp.elementsToTargetMap(Prp.externalPolicyMap, Prp.externalPolicyTargetMap, 'Policy', errors);
-    Prp.elementsToTargetMap(Prp.externalPolicySetMap, Prp.externalPolicySetTargetMap, 'PolicySet', errors);
+    Prp.elementsToTargetMap(Prp.policyMap, Prp.policyTargetMap, Prp.policyMatchAll, 'Policy', errors);
+    Prp.elementsToTargetMap(Prp.policySetMap, Prp.policySetTargetMap, Prp.policySetMatchAll, 'PolicySet', errors);
+    Prp.elementsToTargetMap(Prp.externalPolicyMap, Prp.externalPolicyTargetMap, Prp.externalPolicyMatchAll, 'Policy', errors);
+    Prp.elementsToTargetMap(Prp.externalPolicySetMap, Prp.externalPolicySetTargetMap, Prp.externalPolicySetMatchAll, 'PolicySet', errors);
 
     if (Settings.Prp.debug) log(tag, 'policyTargetMap:\n', Prp.policyTargetMap, '\n');
     if (Settings.Prp.debug) log(tag, 'policySetTargetMap:\n', Prp.policySetTargetMap, '\n');
@@ -240,17 +253,18 @@ export class Prp extends Singleton {
     if (Settings.Prp.debug) log(tag, 'externalPolicySetTargetMap:\n', Prp.externalPolicySetTargetMap, '\n\n');
   }
 
-  private static elementsToTargetMap(elementMap: any, targetMap: any, type: string, errors: Error[]): void {
+  private static elementsToTargetMap(elementMap: any, targetMap: any, matchAll: any[], type: string, errors: Error[]): void {
     const tag: string = `${Prp.tag}.elementsToTargetMap()`;
-    Object.keys(elementMap).forEach(identifier => Prp.elementsToTargetMap(elementMap[identifier], identifier, type, errors));
+    Object.keys(elementMap).forEach(identifier => Prp.elementToTargetMap(elementMap[identifier], targetMap, identifier, matchAll, type, errors));
   }
 
   // Will be used when PAP pushes policies.
-  private static elementToTargetMap(element: Policy | PolicySet, identifier: id | url, targetMap: any, type: string, errors: Error[]): void {
+  private static elementToTargetMap(element: Policy | PolicySet, identifier: id | url, targetMap: any, matchAll: any[], type: string, errors: Error[]): void {
     const tag: string = `${Prp.tag}.elementToTargetMap()`;
     const queryErrors: Error[] = [];
     const queries: string[] = Language.anyOfArrToQueries(element.target, queryErrors);
     if (queryErrors.length) errors.push(Error(`${type} #${identifier} has an invalid target: ${printArr(queryErrors, '\n')}.`));
+    else if (!queries.length) matchAll.push(identifier);
     else queries.forEach(query => targetMap[query] = targetMap[query] ? [...targetMap[query], identifier] : [identifier]);
   }
 
@@ -261,14 +275,14 @@ export class Prp extends Singleton {
     const idPolicies: any[] = Settings.Prp.cacheIdElements ?
       Prp.targetMapThroughCacheToElements(context, Prp.policyTargetMap, Prp.policyMap) :
       await Prp.targetMapThroughPromiseToElements(context, Prp.policyTargetMap, Prp.retrievePolicyById);
-    const evaluatedIdPolicies: Policy[] = idPolicies.map(policy =>
+    const evaluatedIdPolicies: Policy[] = [...idPolicies, ...Prp.policyMatchAll].map(policy =>
       Prp.evaluatePolicy(policy, errors));
     if (Settings.Prp.debug) log(tag, 'evaluatedIdPolicies:', evaluatedIdPolicies);
 
     const urlPolicies: any[] = Settings.Prp.cacheUrlElements ?
       Prp.targetMapThroughCacheToElements(context, Prp.externalPolicyTargetMap, Prp.policyMap) :
       await Prp.targetMapThroughPromiseToElements(context, Prp.externalPolicyTargetMap, Prp.retrievePolicyByUrl);
-    const evaluatedUrlPolicies: Policy[] = urlPolicies.map(policy =>
+    const evaluatedUrlPolicies: Policy[] = [...urlPolicies, ...Prp.externalPolicyMatchAll].map(policy =>
       Prp.evaluatePolicy(policy, errors));
     if (Settings.Prp.debug) log(tag, 'evaluatedUrlPolicies:', evaluatedUrlPolicies);
 
@@ -283,14 +297,14 @@ export class Prp extends Singleton {
     const idPolicySets: any[] = Settings.Prp.cacheIdElements ?
       Prp.targetMapThroughCacheToElements(context, Prp.policySetTargetMap, Prp.policySetMap) :
       await Prp.targetMapThroughPromiseToElements(context, Prp.policySetTargetMap, Prp.retrievePolicySetById);
-    const evaluatedIdPolicySets: PolicySet[] = idPolicySets.map(policySet =>
+    const evaluatedIdPolicySets: PolicySet[] = [...idPolicySets, ...Prp.policySetMatchAll].map(policySet =>
       Prp.evaluatePolicySet(policySet, errors));
     if (Settings.Prp.debug) log(tag, 'evaluatedIdPolicySets:', evaluatedIdPolicySets);
 
     const urlPolicySets: any[] = Settings.Prp.cacheIdElements ?
       Prp.targetMapThroughCacheToElements(context, Prp.externalPolicySetTargetMap, Prp.externalPolicySetMap) :
       await Prp.targetMapThroughPromiseToElements(context, Prp.externalPolicySetTargetMap, Prp.retrievePolicySetByUrl);
-    const evaluatedUrlPolicySets: PolicySet[] = urlPolicySets.map(policySet =>
+    const evaluatedUrlPolicySets: PolicySet[] = [...urlPolicySets, ...Prp.externalPolicySetMatchAll].map(policySet =>
       Prp.evaluatePolicySet(policySet, errors));
     if (Settings.Prp.debug) log(tag, 'evaluatedUrlPolicySets:', evaluatedUrlPolicySets);
 
@@ -328,6 +342,8 @@ export class Prp extends Singleton {
 
   private static retrieveRuleTarget(element: Rule, parent: Policy, errors: Error[]): AnyOf[] {
     const tag: string = `${Prp.tag}.retrieveRuleTarget()`;
+    if (Settings.Prp.debug) log(tag, 'element:', element);
+    if (Settings.Prp.debug) log(tag, 'parent:', parent);
     const target: AnyOf[] = element.target || parent.target;
     if (!target) errors.push(TypeError(`Neither Rule #${element.id} or it's enclosing Policy (${parent.id}) has a defined Target.`));
     return target;

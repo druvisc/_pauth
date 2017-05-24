@@ -54,7 +54,7 @@ export class Pep extends Singleton {
 
   public static async bootstrap(): Promise<void> {
     const tag: string = `${Pep.tag}.bootstrap()`;
-    if (Settings.Prp.debug) console.log(tag);
+    if (Settings.Pep.debug) console.log(tag);
     const errors: Error[] = [];
     Pep.bootstrapped = false;
 
@@ -66,7 +66,7 @@ export class Pep extends Singleton {
     } catch (err) {
       errors.push(err);
     }
-    if (Settings.Prp.debug) log(tag, 'obligationMap:\n', Pep.obligationMap, '\n');
+    if (Settings.Pep.debug) log(tag, 'obligationMap:\n', Pep.obligationMap, '\n');
 
     try {
       (await Pep.retrieveAdvice()).forEach(_advice => {
@@ -76,7 +76,7 @@ export class Pep extends Singleton {
     } catch (err) {
       errors.push(err);
     }
-    if (Settings.Prp.debug) log(tag, 'adviceMap:\n', Pep.adviceMap, '\n');
+    if (Settings.Pep.debug) log(tag, 'adviceMap:\n', Pep.adviceMap, '\n');
 
     if (errors.length) throw `\n${errors.join('\n')}`;
 

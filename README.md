@@ -2,6 +2,8 @@
 
 Suggestions:
 
+
+Not really? Looks like just nodes print out?
 If you're writing the policies through JavaScript, always use either double quote (") or
 template literal/backtick (`) for strings to avoid escape symbols (\).
 
@@ -31,3 +33,16 @@ like for AttributeDesignator.
 $. - start of a JSONPath query, where '$' indicates the authorization request context
 ( ) - since it's possible to retrieve nested attributes,
 the parentheses allow to identify the start and the end of the attribute query
+
+
+### Target
+
+* Target everything
+`
+target: []
+`
+
+* Target a specific resource
+`
+target: '($.resource.id) == "/products/shoes"'
+`

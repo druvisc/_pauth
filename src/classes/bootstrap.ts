@@ -1,4 +1,7 @@
-import { Singleton } from './singleton';
+import {
+  log, isString, isUrl, isNumber, isArray, isFunction, isObject, includes, printArr,
+  anyOf, isPresent,
+} from '../utils';
 import {
   id, url, handler, version, AnyOf, Context, Action, Resource, Subject, Environment, Rule,
   RuleHandler, Policy, PolicySet, Obligation, Advice,
@@ -6,15 +9,11 @@ import {
 import {
   Effect, Effects, CombiningAlgorithm, CombiningAlgorithms, HttpMethod, HttpMethods,
 } from '../constants';
-import {
-  log, isString, isUrl, isNumber, isArray, isFunction, isObject, includes, printArr,
-  anyOf, isPresent,
-} from '../utils';
 import { Language } from '../classes/language';
 import { Settings } from '../settings';
+import { Singleton } from './singleton';
 
 // TODO: Get rid of npm's valid-url. // Why was this?
-// TODO: Operation shows up in context with the null value.
 export class Bootstrap extends Singleton {
   private static readonly tag: string = 'Bootstrap';
 
@@ -174,6 +173,7 @@ export class Bootstrap extends Singleton {
   public static readonly getAction = (element: Action, errors: Error[]): Action =>
     Object.assign({}, element, {
       method: Bootstrap.getHttpMethod(element, 'Action', errors),
+      // TODO:
       operation: Bootstrap.normalizeString(element.operation),
     })
 
