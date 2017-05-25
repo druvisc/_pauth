@@ -1,10 +1,7 @@
 import { Policy } from '../../interfaces';
 import { CombiningAlgorithm } from '../../constants';
-import { obligation1 } from './obligations';
-import { advice1 } from './advice';
 
-
-export const SimplePolicy1 = {
+export const SimplePolicy1: Policy = {
   id: 'SimplePolicy1',
   version: '1.0',
   combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
@@ -13,81 +10,44 @@ export const SimplePolicy1 = {
   ruleIds: ['SimpleRule1'],
 };
 
-export const policies = [
-  SimplePolicy1
+export const Policy1: Policy = {
+  id: 1,
+  version: '1.0',
+  combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+  target: [],
+  ruleIds: [1],
+};
+
+export const Policy2: Policy = {
+  id: 2,
+  version: '1.0',
+  combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+  target: [],
+  ruleIds: [2],
+};
+
+export const Policy3: any = {
+  id: 3,
+  version: '1.0',
+  combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+  description: 'Policy for any medical record in the http://www.med.example.com/schemas/record.xsd namespace.',
+  target: `($.resource.targetNamespace) == 'urn:example:med:schemas:record'`,
+  ruleIds: [3],
+  obligationIds: ['email'],
+};
+
+export const Policy4: Policy = {
+  id: 4,
+  version: '1.0',
+  combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
+  target: [],
+  ruleIds: [4],
+};
+
+export const policies: Policy[] = [
+  SimplePolicy1,
+  Policy1,
+  Policy2,
+  Policy3,
+  Policy4
 ];
-
-
-
-
-
-
-        // const email: any = {};
-
-    // const obligation: Obligation = {
-    //   id: 'email',
-    //   effect: Effect.Permit,
-    //   attributeMap: {
-    //     resource: ['email'],
-    //     subject: ['id'],
-    //   },
-    //   handler: (context, self, pip) =>
-    //     email.send({
-    //       text: `Your medical record has been accessed by: ${context.subject.id}`
-    //     })
-    // };
-
-    // const rule: Rule = {
-    //   id: 3,
-    //   version: '1.0',
-    //   description: 'A physician may write any medical element in a record 1393 [h38] for which he or she is the designated primary care 1394 [h39] physician, provided an email is sent to the patient',
-    //   effect: Effect.Permit,
-    //   target: [
-    //     [
-    //       [
-    //         '$subject.role === "physician"'
-    //       ]
-    //     ]
-    //   ],
-    //   condition: [
-    //     [
-    //       [
-    //         '$subject.physicianId === $resource.record.primaryCarePhysician.registrationID'
-    //       ]
-    //     ]
-    //   ]
-    // };
-
-    // const policy: Policy = {
-    //   id: 3,
-    //   version: '1.0',
-    //   combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
-    //   description: 'Policy for any medical record in the http://www.med.example.com/schemas/record.xsd namespace.',
-    //   // Todo, what is an empty target? [[[]]] or undefined?
-    //   target: [
-    //     [
-    //       [
-    //         "$resource.targetNamespace === 'urn:example:med:schemas:record'"
-    //       ]
-    //     ],
-    //     [
-    //       [
-    //         "'$resource.contentSelector === 'record.medical'"
-    //       ]
-    //     ],
-    //     [
-    //       [
-    //         "$action.actionId === 'write'"
-    //       ]
-    //     ]
-    //   ],
-    //   ruleIds: [3],
-    //   obligationIds: ['email'],
-    // };
-
-
-
-
-
-
-

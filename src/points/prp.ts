@@ -54,12 +54,6 @@ export class Prp extends Singleton {
     return request;
   }
 
-  public static getPolicy(identifier: id | url): Policy {
-    const tag: string = `${Prp.tag}.getPolicy()`;
-    const policy: Policy = Prp.policyMap[identifier] || Prp.externalPolicyMap[identifier];
-    return policy;
-  }
-
   private static async retrievePolicySets(): Promise<any[]> {
     const tag: string = `${Prp.tag}.retrievePolicySets()`;
     const request: Promise<any[]> = Prp._retrievePolicySets();
@@ -114,6 +108,30 @@ export class Prp extends Singleton {
     return request;
   }
   //
+
+  public static getRule(identifier: id | url): Rule {
+    const tag: string = `${Prp.tag}.getRule()`;
+    if (Settings.Prp.debug) log(tag, 'identifier:', identifier);
+    const rule: Rule = Prp.ruleMap[identifier] || Prp.externalRuleMap[identifier];
+    if (Settings.Prp.debug) log(tag, 'rule:', rule);
+    return rule;
+  }
+
+  public static getPolicy(identifier: id | url): Policy {
+    const tag: string = `${Prp.tag}.getPolicy()`;
+    if (Settings.Prp.debug) log(tag, 'identifier:', identifier);
+    const policy: Policy = Prp.policyMap[identifier] || Prp.externalPolicyMap[identifier];
+    if (Settings.Prp.debug) log(tag, 'policy:', policy);
+    return policy;
+  }
+
+  public static getPolicySet(identifier: id | url): PolicySet {
+    const tag: string = `${Prp.tag}.getPolicySet()`;
+    if (Settings.Prp.debug) log(tag, 'identifier:', identifier);
+    const policySet: PolicySet = Prp.policySetMap[identifier] || Prp.externalPolicySetMap[identifier];
+    if (Settings.Prp.debug) log(tag, 'policySet:', policySet);
+    return policySet;
+  }
 
   // TODO: Validate urls before request?
   public static async bootstrap(): Promise<boolean> {
@@ -330,10 +348,11 @@ export class Prp extends Singleton {
   }
 
   // TODO: Will be used when PAP pushes policies.
-  private static elementToTargetMap(element: Policy | PolicySet, identifier: id | url, targetMap: any, matchAll: any[], type: string, errors: Error[]): void {
+  private static elementToTargetMap(element: Policy | PolicySet, targetMap: any, identifier: id | url, matchAll: any[], type: string, errors: Error[]): void {
     const tag: string = `${Prp.tag}.elementToTargetMap()`;
     const queryErrors: Error[] = [];
     const queries: string[] = Language.anyOfArrToQueries(element.target, queryErrors, false);
+    // if (Settings.Prp.debug) printArr('queries:', queries);
     if (queryErrors.length) errors.push(Error(`${type} #${identifier} has an invalid target: ${printStrArr(queryErrors, '\n')}.`));
     else if (!queries.length) matchAll.push(identifier);
     else queries.forEach(query => targetMap[query] = targetMap[query] ? [...targetMap[query], identifier] : [identifier]);

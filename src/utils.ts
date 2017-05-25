@@ -42,7 +42,7 @@ export const isCharQuoted = (str: string, index: number): boolean => {
 
 export const getPairIndex = (start: string, end: string, str: string, position: number = 0): number => {
   let startCount: number = 0;
-  for (let i = position; i < str.length - 1; i++) {
+  for (let i = position; i < str.length; i++) {
     if (str[i] === start) startCount++;
     else if (str[i] === end) {
       if (startCount === 0) return i;
@@ -148,7 +148,7 @@ export async function evaluateHandler(context: Context, element: RuleHandler | O
   const handlerUrl: url = handlerFunction === null ? element.handler as url : null;
   if (debug) log(tag, 'handlerUrl:', handlerUrl);
 
-  if (handlerFunction) return await handlerFunction(context, element, Pip);
+  if (handlerFunction) return await handlerFunction(context, Pip);
   else if (handlerUrl) {
     const response: any = await Request.post({ uri: handlerUrl, body: context, });
     return response.body;

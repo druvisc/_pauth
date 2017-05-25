@@ -28,7 +28,6 @@ export interface Context {
   subject: Subject;
   resource: Resource;
   environment?: Environment;
-  additional?: any;
   policyList?: {
     policy: Policy | PolicySet
     decision: Decision

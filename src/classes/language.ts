@@ -8,9 +8,9 @@ import { Decision } from '../constants';
 import { Settings } from '../settings';
 import { Singleton } from './singleton';
 
-const QueryStart: string = '($.';
-const QueryEnd: string = ')';
-const QueryEndPair: string = '(';
+export const QueryStart: string = '($.';
+export const QueryEnd: string = ')';
+export const QueryEndPair: string = '(';
 
 export class Language extends Singleton {
   private static readonly tag: string = 'Language';
@@ -127,7 +127,7 @@ export class Language extends Singleton {
       const split: string[] = query.split('.');
       const element: string = split[0];
       // if (Settings.Language.debug) log(tag, 'element:', element);
-      const flatAttribute: string = split.slice(1).join();
+      const flatAttribute: string = split.slice(1).join('.');
       // if (Settings.Language.debug) log(tag, 'flatAttribute:', flatAttribute);
       map[element] = map[element] ? [...map[element], flatAttribute] : [flatAttribute];
       return map;

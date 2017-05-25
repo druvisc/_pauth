@@ -1,7 +1,8 @@
 // require('util').inspect.defaultOptions.depth = null;
 import 'mocha';
 import { expect } from 'chai';
-import { listFlatAttributes, isCharQuoted, indexOfNth, } from '../utils';
+import { listFlatAttributes, isCharQuoted, indexOfNth, getPairIndex, } from '../utils';
+import { QueryStart, QueryEnd, QueryEndPair } from '../classes/language';
 
 describe('utils', () => {
   it('listFlatAttributes', () => {
@@ -34,6 +35,7 @@ describe('utils', () => {
     expect(result).to.be.deep.equal(correct);
   });
 
+
   it('isCharQuoted', () => {
     const str: string = "'$' === $.resource.currency && \"$\" === `$`";
 
@@ -42,4 +44,10 @@ describe('utils', () => {
     expect(isCharQuoted(str, indexOfNth(str, '$', 3))).to.be.equal(true);
     expect(isCharQuoted(str, indexOfNth(str, '$', 4))).to.be.equal(true);
   });
+
+
+  // it('getPairIndex', () => {
+  //   const str: string = `($.subject.patientNumber) == ($.resource.patientNumber)`;
+  //   console.log(getPairIndex(QueryStart, QueryEnd, str, 1));
+  // });
 });

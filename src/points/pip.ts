@@ -4,6 +4,11 @@ import { log, retrieveElement, listMissingNestedValues, } from '../utils';
 import { Context, } from '../interfaces';
 import { Settings } from '../settings';
 
+// TODO: Unnested attribute retrieval can stay but only if it's used together with
+// user defined model-mapping, i.e, ['user', 'parent']. If a query is ($.subject.parent.email),
+// you ask for the parent, then e-mail, otherwise, the full query since it might as well just be an object.
+// This would help a bit with attribute mapping? I mean user just could do an if and request himself when
+// context['parent']['email'] is not possible.
 export class Pip extends Singleton {
   private static readonly tag: string = 'Pip';
 
@@ -65,12 +70,17 @@ export class Pip extends Singleton {
         // if (Settings.Pip.debug) log(tag, 'attribute:', attribute);
         const split: string[] = attribute.split('.');
         flatAttributeMap[element].push(split[0]);
-        if (split.length > 1) nextAttributeMap[split[0]] = split.slice(1).join('');
+        if (split.length > 1) {
+          const nextElement: string = split[0];
+          const nextAttribute: string = split.slice(1).join('.');
+          nextAttributeMap[nextElement] = nextAttributeMap[nextElement] ?
+            [...nextAttributeMap[nextElement], nextAttribute] : [nextAttribute];
+        }
       });
     });
 
-    if (Settings.Pip.debug) log(tag, 'flatAttributeMap:', flatAttributeMap);
-    if (Settings.Pip.debug) log(tag, 'nextAttributeMap:', nextAttributeMap);
+    // if (Settings.Pip.debug) log(tag, 'flatAttributeMap:', flatAttributeMap);
+    // if (Settings.Pip.debug) log(tag, 'nextAttributeMap:', nextAttributeMap);
 
     const attributes: any = merge.recursive({},
       !Object.keys(flatAttributeMap).length ? {} : await Pip._retrieveAttributes(context, flatAttributeMap),

@@ -113,7 +113,7 @@ export class Pdp extends Singleton {
   public static retrieveTargetAttributeMap(element: Rule | Policy | PolicySet, attributeMaps: any): any {
     const tag: string = `${Pdp.tag}.retrieveTargetAttributeMap()`;
     const container: AttributeMapContainer = attributeMaps[element.id];
-    if (Settings.Pdp.debug) log(tag, 'container:', container);
+    // if (Settings.Pdp.debug) log(tag, 'container:', container);
 
     if (container && container.version === element.version) return container.attributeMap;
 
@@ -122,7 +122,7 @@ export class Pdp extends Singleton {
       version: element.version,
       attributeMap: Language.anyOfArrToFlatAttributeMap(element.target, targetQueryErrors),
     };
-    if (Settings.Pdp.debug) log(tag, `attributeMaps.${element.id}:`, attributeMaps[element.id]);
+    // if (Settings.Pdp.debug) log(tag, `attributeMaps['${element.id}']:`, attributeMaps[element.id]);
     return attributeMaps[element.id].attributeMap;
   }
 
@@ -171,6 +171,7 @@ export class Pdp extends Singleton {
   public static async combineDecision(context: Context, element: Policy | PolicySet,
     combiningAlgorithm: CombiningAlgorithm = element.combiningAlgorithm): Promise<Decision> {
     const tag: string = `${Pdp.tag}.combineDecision()`;
+    if (Settings.Pdp.debug) log(tag, 'context:\n', context);
     if (Settings.Pdp.debug) log(tag, 'element:\n', element);
     const policy: boolean = isPolicy(element);
 
@@ -445,7 +446,7 @@ export class Pdp extends Singleton {
     if (conditionAttributeMap) {
       const missingConditionAttributes: string[] = await Pip.retrieveAttributes(context, conditionAttributeMap);
       if (missingConditionAttributes.length) {
-        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${element.id} ${ruleHandlerDefined ? 'RuleHandler #' + element.handlerId : 'condition'}. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printStrArr(missingTargetAttributes, '\n')}.`);
+        if (Settings.Pdp.debug) log(tag, `Couldn't evaluate Rule #${element.id} ${ruleHandlerDefined ? 'RuleHandler #' + element.handlerId : 'condition'}. Evaluating Rule to ${Decision[Decision.Indeterminate]}. Unretrieved attributes: ${printStrArr(missingConditionAttributes, '\n')}.`);
         return Decision.Indeterminate;
       }
     }
