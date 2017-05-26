@@ -432,8 +432,8 @@ export class Prp extends Singleton {
 
   private static retrieveRuleTarget(element: Rule, parent: Policy, errors: Error[]): AnyOf[] {
     const tag: string = `${Prp.tag}.retrieveRuleTarget()`;
-    if (Settings.Prp.debug) log(tag, 'element:', element);
-    if (Settings.Prp.debug) log(tag, 'parent:', parent);
+    // if (Settings.Prp.debug) log(tag, 'element:', element);
+    // if (Settings.Prp.debug) log(tag, 'parent:', parent);
     const target: AnyOf[] = element.target || parent.target;
     if (!target) errors.push(TypeError(`Neither Rule #${element.id} or it's enclosing Policy (${parent.id}) has a defined Target.`));
     return target;

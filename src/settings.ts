@@ -37,25 +37,25 @@ class Settings extends Singleton {
 
   public static readonly Prp = {
     error: true,
-    debug: true,
+    debug: false,
     targetOperation: Operation.Union,
     cacheIdElements: true,
     cacheUrlElements: true,
   };
 
   public static readonly Pip = {
-    debug: true,
+    debug: false,
     retrieveNestedAttributes: false,
   };
 
   public static readonly Language = {
     error: true,
-    debug: true,
+    debug: false,
   };
 
   public static readonly Bootstrap = {
     error: true,
-    debug: true,
+    debug: false,
   };
 }
 

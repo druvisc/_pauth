@@ -31,7 +31,7 @@ export const Policy3: any = {
   version: '1.0',
   combiningAlgorithm: CombiningAlgorithm.DenyOverrides,
   description: 'Policy for any medical record in the http://www.med.example.com/schemas/record.xsd namespace.',
-  target: `($.resource.targetNamespace) == 'urn:example:med:schemas:record'`,
+  target: `($.resource.targetNamespace) == 'urn:example:med:schema:record'`,
   ruleIds: [3],
   obligationIds: ['email'],
 };
@@ -44,10 +44,16 @@ export const Policy4: Policy = {
   ruleIds: [4],
 };
 
+export const Policy5: Policy = Object.assign({}, Policy2, {
+  id: 5,
+  ruleIds: [1, 2, 4]
+});
+
 export const policies: Policy[] = [
   SimplePolicy1,
   Policy1,
   Policy2,
   Policy3,
-  Policy4
+  Policy4,
+  Policy5
 ];

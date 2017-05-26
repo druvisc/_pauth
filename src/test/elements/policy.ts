@@ -2,18 +2,18 @@ require('util').inspect.defaultOptions.depth = null;
 import 'mocha';
 import * as jp from 'jsonpath';
 import { expect } from 'chai';
-import { policies } from '../test/data/policies';
-import { obligations } from '../test/data/obligations';
+import { policies } from '../../test/data/policies';
+import { obligations } from '../../test/data/obligations';
 // import { advice } from '../test/data/advice';
-import { rules } from '../test/data/rules';
-import { id, Context, Action, Resource, Subject, Environment, Policy, } from '../interfaces';
-import { HttpMethod, Effect, Decision, } from '../constants';
-import { Bootstrap } from '../classes/bootstrap';
-import { Pep } from '../points/pep';
-import { Pdp } from '../points/pdp';
-import { Prp } from '../points/prp';
-import { Pip } from '../points/pip';
-import { Pap } from '../points/pap';
+import { rules } from '../../test/data/rules';
+import { id, Context, Action, Resource, Subject, Environment, Policy, } from '../../interfaces';
+import { HttpMethod, Effect, Decision, } from '../../constants';
+import { Bootstrap } from '../../classes/bootstrap';
+import { Pep } from '../../points/pep';
+import { Pdp } from '../../points/pdp';
+import { Prp } from '../../points/prp';
+import { Pip } from '../../points/pip';
+import { Pap } from '../../points/pap';
 
 
 describe('Policy', () => {
@@ -49,17 +49,17 @@ describe('Policy', () => {
   it('SimplePolicy1', async () => {
     const errors: Error[] = [];
 
-    const action: Action = Bootstrap.getAction({
-      method: `${HttpMethod.Get.toUpperCase()}`,
-    }, errors);
+    const action: Action = {
+      method: HttpMethod.Get,
+    };
 
-    const resource: Resource = Bootstrap.getResource({
+    const resource: Resource = {
       id: `/patients/1`,
-    }, errors);
+    };
 
-    const subject: Subject = Bootstrap.getSubject({
+    const subject: Subject = {
       id: 'drbob@med.example.com',
-    }, errors);
+    };
 
     const context: Context = Bootstrap.getContext({
       returnReason: true,
@@ -83,14 +83,14 @@ describe('Policy', () => {
     const errors: Error[] = [];
 
     const action: Action = {
-      method: `${HttpMethod.Get}`,
+      method: HttpMethod.Get,
       actionId: 'read',
     } as Action;
 
     const resource: Resource = {
       id: `/patient/1`,
       patientNumber: 1,
-      targetNamespace: 'urn:example:med:schemas:record',
+      targetNamespace: 'urn:example:med:schema:record',
       contentSelector: 'record',
     } as Resource;
 
@@ -123,14 +123,14 @@ describe('Policy', () => {
     const errors: Error[] = [];
 
     const action: Action = {
-      method: `${HttpMethod.Get}`,
+      method: HttpMethod.Get,
       actionId: 'read',
     } as Action;
 
     const resource: Resource = {
       id: `/patient/1`,
       patientDateOfBirth: 'Mon Jan 01 2005 00:00:00 GMT+0200 (EET)',
-      targetNamespace: 'urn:example:med:schemas:record',
+      targetNamespace: 'urn:example:med:schema:record',
       contentSelector: 'record',
       parentGuardianId: 1,
     } as Resource;
@@ -164,13 +164,13 @@ describe('Policy', () => {
     const errors: Error[] = [];
 
     const action: Action = {
-      method: `${HttpMethod.Get}`,
+      method: HttpMethod.Get,
       actionId: 'write',
     } as Action;
 
     const resource: Resource = {
       id: `/patient/1`,
-      targetNamespace: 'urn:example:med:schemas:record',
+      targetNamespace: 'urn:example:med:schema:record',
       // TODO: This isn't actually great (resource queries getting in the way of the target resource).
       contentSelector: 'record.medical',
       record: {
@@ -210,13 +210,13 @@ describe('Policy', () => {
     const errors: Error[] = [];
 
     const action: Action = {
-      method: `${HttpMethod.Get}`,
+      method: HttpMethod.Get,
       actionId: 'write',
     } as Action;
 
     const resource: Resource = {
       id: `/patient/1`,
-      targetNamespace: 'urn:example:med:schemas:record',
+      targetNamespace: 'urn:example:med:schema:record',
       contentSelector: 'record.medical',
     } as Resource;
 

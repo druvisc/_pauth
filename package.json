@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "test": "mocha -r ts-node/register src/test/policy.ts",
+    "test": "mocha -r ts-node/register src/test/utils.ts && mocha -r ts-node/register src/test/elements/*.ts && mocha -r ts-node/register src/test/points/*.ts",
     "start": "ts-node src/app.ts"
   },
   "author": "Druvis Cukurs",

@@ -17,7 +17,7 @@ export const Rule1 = {
   target: [
     [
       `($.action.actionId) == 'read'`,
-      `($.resource.targetNamespace) == 'urn:example:med:schemas:record'`,
+      `($.resource.targetNamespace) == 'urn:example:med:schema:record'`,
       `($.resource.contentSelector) == 'record'`,
     ]
   ],
@@ -32,7 +32,7 @@ export const Rule2 = {
   target: [
     [
       `($.action.actionId) == 'read'`,
-      `($.resource.targetNamespace) == 'urn:example:med:schemas:record'`,
+      `($.resource.targetNamespace) == 'urn:example:med:schema:record'`,
       `($.resource.contentSelector) == 'record'`,
     ]
   ],
@@ -62,7 +62,7 @@ export const Rule4 = {
   effect: Effect.Deny,
   target: [
     `($.subject.role) == 'administrator'`,
-    `($.resource.targetNamespace) == 'urn:example:med:schemas:record'`,
+    `($.resource.targetNamespace) == 'urn:example:med:schema:record'`,
     `($.resource.contentSelector) == 'record.medical'`,
     `($.action.actionId) == 'read' || ($.action.actionId) == 'write'`
   ]

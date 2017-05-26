@@ -76,6 +76,7 @@ export class Bootstrap extends Singleton {
   private static readonly anyOfToAnyOffArr = (target: any): AnyOf[] =>
     isArray(target) && target.every(Bootstrap.allOfToAnyOffArr) ? [target] : null
 
+  // TODO: Passes because empty array. Check [0] element.
   // AnyOf[] -> AnyOf[] | null
   private static readonly anyOfArrToAnyOffArr = (target: any): AnyOf[] =>
     isArray(target) && target.every(Bootstrap.anyOfToAnyOffArr) ? target : null
@@ -313,7 +314,9 @@ export class Bootstrap extends Singleton {
       // defaults?: any;
       // TODO: Maybe can keep these to null so there's no unnecessary debug information in the Pep.
       policySetIds: Bootstrap.getIds(element, 'policySetIds', 'PolicySet', errors),
+      policySetUrls: Bootstrap.getUrls(element, 'policySetUrls', 'PolicySet', errors),
       policyIds: Bootstrap.getIds(element, 'policyIds', 'PolicySet', errors),
+      policyUrls: Bootstrap.getUrls(element, 'policyUrls', 'PolicySet', errors),
       obligationIds: Bootstrap.getIds(element, 'obligationIds', 'PolicySet', errors),
       adviceIds: Bootstrap.getIds(element, 'adviceIds', 'PolicySet', errors),
       // combinerParameters: any;

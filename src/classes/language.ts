@@ -48,7 +48,7 @@ export class Language extends Singleton {
 
   public static extractQueries(str: string): string[] | Decision {
     const tag: string = `${Language.tag}.extractQueries()`;
-    if (Settings.Language.error) log(tag, 'str:', str);
+    // if (Settings.Language.error) log(tag, 'str:', str);
     const queries: string[] = [];
     let queryStart: number = str.indexOf(QueryStart, 0);
     let queryEnd: number;
