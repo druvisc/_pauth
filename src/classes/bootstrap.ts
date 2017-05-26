@@ -212,7 +212,8 @@ export class Bootstrap extends Singleton {
   public static readonly getContext = (element: Context, errors: Error[]): Context => {
     const tag: string = `${Bootstrap.tag}.getContext()`;
     if (Settings.Bootstrap.debug) console.log(tag);
-    return Object.assign({}, element, {
+    // return Object.assign({}, element, {
+    return Object.assign(element, {
       returnReason: Bootstrap.normalizeBoolean(element.returnReason),
       returnPolicyList: Bootstrap.normalizeBoolean(element.returnPolicyList),
       returnAdviceResults: Bootstrap.normalizeBoolean(element.returnAdviceResults),

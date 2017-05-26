@@ -71,10 +71,11 @@ describe('Policy', () => {
       subject,
     }, errors);
 
-    const id: id = 'SimplePolicy1';
-    const policy: Policy = Prp.getPolicy(id);
-    // console.log('SimplePolicy1:', policy);
-    const decision: Decision = await Pdp.combineDecision(context, policy);
+    // const id: id = 'SimplePolicy1';
+    // const policy: Policy = Prp.getPolicy(id);
+    // // console.log('SimplePolicy1:', policy);
+    // const decision: Decision = await Pdp.combineDecision(context, policy);
+    const decision: Decision = await Pdp.EvaluateDecisionRequest(context);
     expect(decision).to.be.equal(Decision.Permit);
   });
 
@@ -111,10 +112,11 @@ describe('Policy', () => {
 
     if (errors.length) throw errors;
 
-    const id: id = 1;
-    const policy: Policy = Prp.getPolicy(id);
-    // console.log('Policy1:', policy);
-    const decision: Decision = await Pdp.combineDecision(context, policy);
+    // const id: id = 1;
+    // const policy: Policy = Prp.getPolicy(id);
+    // // console.log('Policy1:', policy);
+    // const decision: Decision = await Pdp.combineDecision(context, policy);
+    const decision: Decision = await Pdp.EvaluateDecisionRequest(context);
     expect(decision).to.be.equal(Decision.Permit);
   });
 
@@ -152,10 +154,11 @@ describe('Policy', () => {
 
     if (errors.length) throw errors;
 
-    const id: id = 2;
-    const policy: Policy = Prp.getPolicy(id);
-    // console.log('Policy2:', policy);
-    const decision: Decision = await Pdp.combineDecision(context, policy);
+    // const id: id = 2;
+    // const policy: Policy = Prp.getPolicy(id);
+    // // console.log('Policy2:', policy);
+    // const decision: Decision = await Pdp.combineDecision(context, policy);
+    const decision: Decision = await Pdp.EvaluateDecisionRequest(context);
     expect(decision).to.be.equal(Decision.Permit);
   });
 
@@ -198,10 +201,11 @@ describe('Policy', () => {
 
     if (errors.length) throw errors;
 
-    const id: id = 3;
-    const policy: Policy = Prp.getPolicy(id);
-    // console.log('Policy3:', policy);
-    const decision: Decision = await Pdp.combineDecision(context, policy);
+    // const id: id = 3;
+    // const policy: Policy = Prp.getPolicy(id);
+    // // console.log('Policy3:', policy);
+    // const decision: Decision = await Pdp.combineDecision(context, policy);
+    const decision: Decision = await Pdp.EvaluateDecisionRequest(context);
     expect(decision).to.be.equal(Decision.Permit);
   });
 
@@ -237,10 +241,11 @@ describe('Policy', () => {
 
     if (errors.length) throw errors;
 
-    const id: id = 4;
-    const policy: Policy = Prp.getPolicy(id);
-    // console.log('Policy4:', policy);
-    const decision: Decision = await Pdp.combineDecision(context, policy);
+    // const id: id = 4;
+    // const policy: Policy = Prp.getPolicy(id);
+    // // console.log('Policy4:', policy);
+    // const decision: Decision = await Pdp.combineDecision(context, policy);
+    const decision: Decision = await Pdp.EvaluateDecisionRequest(context);
     expect(decision).to.be.equal(Decision.Deny);
   });
 });

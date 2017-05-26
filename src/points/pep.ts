@@ -43,13 +43,17 @@ export class Pep extends Singleton {
 
   public static getObligationById(id: id): Obligation {
     const tag: string = `${Pep.tag}.getObligationById()`;
+    if (Settings.Pep.debug) log(tag, 'id:', id);
     const obligation: Obligation = Pep.obligationMap[id];
+    if (Settings.Pep.debug) log(tag, 'obligation:', obligation);
     return obligation;
   }
 
   public static getAdviceById(id: id): Advice {
     const tag: string = `${Pep.tag}.getAdviceById()`;
+    if (Settings.Pep.debug) log(tag, 'id:', id);
     const advice: Advice = Pep.adviceMap[id];
+    if (Settings.Pep.debug) log(tag, 'advice:', advice);
     return advice;
   }
 
@@ -62,7 +66,7 @@ export class Pep extends Singleton {
     try {
       (await Pep.retrieveObligations()).forEach(_obligation => {
         const obligation: Obligation = Bootstrap.getObligation(_obligation, errors);
-        if (!isPresent(obligation.id)) Pep.obligationMap[obligation.id] = obligation;
+        if (isPresent(obligation.id)) Pep.obligationMap[obligation.id] = obligation;
       });
     } catch (err) {
       errors.push(err);
@@ -71,14 +75,14 @@ export class Pep extends Singleton {
     try {
       (await Pep.retrieveAdvice()).forEach(_advice => {
         const advice: Advice = Bootstrap.getAdvice(_advice, errors);
-        if (!isPresent(advice.id)) Pep.adviceMap[advice.id] = advice;
+        if (isPresent(advice.id)) Pep.adviceMap[advice.id] = advice;
       });
     } catch (err) {
       errors.push(err);
     }
 
-    // if (Settings.Pep.debug) log(tag, 'obligationMap:', Pep.obligationMap);
-    // if (Settings.Pep.debug) log(tag, 'adviceMap:', Pep.adviceMap);
+    if (Settings.Pep.debug) log(tag, 'obligationMap:', Pep.obligationMap);
+    if (Settings.Pep.debug) log(tag, 'adviceMap:', Pep.adviceMap);
 
     if (errors.length) throw `${errors.join('\n')}`;
 
@@ -94,7 +98,7 @@ export class Pep extends Singleton {
       else throw Error(`Pep has not been bootstrapped.`);
     }
 
-    let _context: any = !Settings.Pep.isGateway ? ctx : {
+    const context = !Settings.Pep.isGateway ? ctx : {
       returnReason: Settings.Pep.returnReason,
       returnPolicyList: Settings.Pep.returnPolicyList,
       returnAdviceResults: Settings.Pep.returnAdviceResults,
@@ -106,7 +110,7 @@ export class Pep extends Singleton {
     };
 
     const contextErrors: Error[] = [];
-    const context: Context = Bootstrap.getContext(_context, contextErrors);
+    Bootstrap.getContext(context, contextErrors);
     if (contextErrors.length) {
       if (Settings.Pep.debug) log(tag, 'contextErrors:', contextErrors);
       // TODO: Status code.
@@ -183,19 +187,21 @@ export class Pep extends Singleton {
 
   public static async evaluateObligations(context: Context): Promise<HandlerResult[]> {
     const tag: string = `${Pep.tag}.evaluateObligations()`;
-    const obligationIds: id[] = unique(Pep.gatherIds(context.policyList.map(container => container.policy), 'obligationIds'));
+    const policies: (Policy | PolicySet)[] = context.policyList.map(container => container.policy);
+    const obligationIds: id[] = unique(Pep.gatherIds(policies, 'obligationIds'));
+    if (Settings.Pep.debug) log(tag, 'obligationIds:', obligationIds);
     const obligationResults: HandlerResult[] = [];
     for (const id of obligationIds) {
       const obligation: Obligation = Pep.getObligationById(id);
-      const container: HandlerResult = { id: obligation.id };
+      const container: HandlerResult = { id };
 
       if (!obligation) {
-        container.err = `Obligation #${obligation.id} is not registered with the Pep.`;
+        container.err = `Obligation #${id} is not registered with the Pep.`;
         obligationResults.push(container);
       } else if (!obligation.effect || obligation.effect === context.decision) {
         const missingAttributes: string[] = await Pip.retrieveAttributes(context, obligation.attributeMap);
         if (missingAttributes.length) {
-          container.err = `Couldn't retrieve these attributes to evaluate Obligation #${obligation.id}: ${printStrArr(missingAttributes)}]`;
+          container.err = `Couldn't retrieve these attributes to evaluate Obligation #${id}: ${printStrArr(missingAttributes)}]`;
         } else {
           try {
             container.res = await evaluateHandler(context, obligation, 'Obligation', Pip);
@@ -217,19 +223,21 @@ export class Pep extends Singleton {
 
   public static async evaluateAdvice(context: Context): Promise<HandlerResult[]> {
     const tag: string = `${Pep.tag}.evaluateAdvice()`;
-    const adviceIds: id[] = unique(Pep.gatherIds(context.policyList.map(container => container.policy), 'adviceIds'));
+    const policies: (Policy | PolicySet)[] = context.policyList.map(container => container.policy);
+    const adviceIds: id[] = unique(Pep.gatherIds(policies, 'adviceIds'));
+    if (Settings.Pep.debug) log(tag, 'adviceIds:', adviceIds);
     const adviceResults: HandlerResult[] = [];
     for (const id of adviceIds) {
       const advice: Advice = Pep.getAdviceById(id);
-      const container: HandlerResult = { id: advice.id };
+      const container: HandlerResult = { id };
 
       if (!advice) {
-        container.err = `Advice #${advice.id} is not registered with the Pep.`;
+        container.err = `Advice #${id} is not registered with the Pep.`;
         adviceResults.push(container);
       } else if (!advice.effect || advice.effect === context.decision) {
         const missingAttributes: string[] = await Pip.retrieveAttributes(context, advice.attributeMap);
         if (missingAttributes.length) {
-          container.err = `Couldn't retrieve these attributes to evaluate Advice #${advice.id}: ${printStrArr(missingAttributes)}.`;
+          container.err = `Couldn't retrieve these attributes to evaluate Advice #${id}: ${printStrArr(missingAttributes)}.`;
         } else {
           try {
             container.res = await evaluateHandler(context, advice, 'advice', Pip);
@@ -257,12 +265,15 @@ export class Pep extends Singleton {
       const policy: Policy = _policy;
       return [
         ...policy[key],
-        ...policy.rules.map(rule => rule[key])
+        ...flatten(policy.rules.map(rule => rule[key]))
       ];
     }))
 
   public static async evaluateAuthorizationResponse(ctx: any, context: Context): Promise<void> {
     const tag: string = `${Pep.tag}.evaluateAuthorizationResponse()`;
+    if (Settings.Pep.debug) log(tag, 'ctx:', ctx);
+    if (Settings.Pep.debug) log(tag, 'context:', context);
+
     const headers: any = {};
     if (Settings.Pep.debug) log(tag, 'headers:', headers);
 
@@ -270,7 +281,7 @@ export class Pep extends Singleton {
       decision: context.decision,
     };
 
-    if (context.returnReason) body.reason = context.reason;
+    if (context.returnReason && context.reason) body.reason = context.reason;
     if (context.returnPolicyList) body.policyList = context.policyList;
     if (context.returnAdviceResults) body.adviceResults = context.adviceResults;
     if (context.returnObligationResults) body.obligationResults = context.obligationResults;

@@ -140,19 +140,17 @@ export class Pdp extends Singleton {
     return Pdp.ruleConditionAttributeMaps[element.id].attributeMap;
   }
 
-  // TODO: Act on errors.
   public static async EvaluateDecisionRequest(context: Context): Promise<Decision> {
-    const tag: string = `${Pdp.tag}.evaluateDecisionRequest()`;
-    if (!Pdp.bootstrapped) {
-      // if (Settings.Pdp.isGateway) ctx.assert(Pep.bootstrapped, 500);
-      // else
-      throw Error(`Pdp has not been bootstrapped.`);
-    }
-
+    const tag: string = `${Pdp.tag}.EvaluateDecisionRequest()`;
+    if (!Pdp.bootstrapped) throw Error(`Pdp has not been bootstrapped.`);
     if (Settings.Pdp.debug) log(tag, 'context:', context);
+    const contextQueries: string[] = Language.retrieveContextQueries(context);
+    if (Settings.Pdp.debug) log(tag, 'contextQueries:', contextQueries);
     const errors: Error[] = [];
-    const policies: Policy[] = await Prp.retrieveContextPolicies(context, errors);
-    const policySets: PolicySet[] = await Prp.retrieveContextPolicySets(context, errors);
+    const policies: Policy[] = await Prp.retrieveContextPolicies(contextQueries, errors);
+    const policySets: PolicySet[] = await Prp.retrieveContextPolicySets(contextQueries, errors);
+    if (errors.length) throw errors;
+
     const policySet: PolicySet = {
       id: null,
       version: null,

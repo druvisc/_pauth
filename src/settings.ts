@@ -14,7 +14,7 @@ class Settings extends Singleton {
     port: 3000,
     error: true,
     debug: true,
-    isGateway: true,
+    isGateway: false,
     bias: Bias.Deny,
     returnReason: true,
     returnPolicyList: true, // false | 'id' | 'full'
@@ -55,7 +55,7 @@ class Settings extends Singleton {
 
   public static readonly Bootstrap = {
     error: true,
-    debug: false,
+    debug: true,
   };
 }
 

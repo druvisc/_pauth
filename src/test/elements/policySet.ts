@@ -63,6 +63,11 @@ describe('PolicySet', () => {
       // TODO: This isn't actually great (resource queries getting in the way of the target resource).
       contentSelector: 'record.medical',
       record: {
+        patient: {
+          patientContact: {
+            email: 'mrpatient@gmail.com',
+          },
+        },
         primaryCarePhysician: {
           registrationId: 1,
         }
@@ -87,11 +92,14 @@ describe('PolicySet', () => {
 
     if (errors.length) throw errors;
 
-    const id: id = 1;
-    const policySet: PolicySet = Prp.getPolicySet(id);
-    // console.log('PolicySet1:', policySet);
-    const decision: Decision = await Pdp.combineDecision(context, policySet);
-    expect(decision).to.be.equal(Decision.Permit);
+    // const id: id = 1;
+    // const policySet: PolicySet = Prp.getPolicySet(id);
+    // // console.log('PolicySet1:', policySet);
+    // const decision: Decision = await Pdp.combineDecision(context, policySet);
+    // const decision: Decision = await Pdp.EvaluateDecisionRequest(context);
+    await Pep.EvaluateAuthorizationRequest(context, null);
+    // expect(decision).to.be.equal(Decision.Permit);
+    console.log(context);
   });
 
 

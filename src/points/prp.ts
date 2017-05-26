@@ -144,7 +144,7 @@ export class Prp extends Singleton {
     try {
       (await Prp.retrieveRules()).forEach(_rule => {
         const rule: Rule = Bootstrap.getRule(_rule, errors);
-        Prp.ruleMap[rule.id] = rule;
+        if (isPresent(rule.id)) Prp.ruleMap[rule.id] = rule;
       });
     } catch (err) {
       errors.push(err);
@@ -153,7 +153,7 @@ export class Prp extends Singleton {
     try {
       for (const _policy of await Prp.retrievePolicies()) {
         const policy: Policy = Bootstrap.getPolicy(_policy, errors);
-        Prp.policyMap[policy.id] = policy;
+        if (isPresent(policy.id)) Prp.policyMap[policy.id] = policy;
 
         const ruleRequests: Promise<Rule>[] = policy.ruleUrls.filter(url =>
           !Prp.ruleMap[url] && !Prp.externalRuleMap[url]).map(url =>
@@ -170,7 +170,7 @@ export class Prp extends Singleton {
     try {
       for (const _policySet of await Prp.retrievePolicySets()) {
         const policySet: PolicySet = Bootstrap.getPolicySet(_policySet, errors);
-        Prp.policySetMap[policySet.id] = policySet;
+        if (isPresent(policySet.id)) Prp.policySetMap[policySet.id] = policySet;
 
         const policyRequests: Promise<Policy>[] = policySet.policyUrls.filter(url =>
           !Prp.policyMap[url] && !Prp.externalPolicyMap[url]).map(url =>
@@ -358,76 +358,57 @@ export class Prp extends Singleton {
     else queries.forEach(query => targetMap[query] = targetMap[query] ? [...targetMap[query], identifier] : [identifier]);
   }
 
-  public static async retrieveContextPolicies(context: Context, errors: Error[]): Promise<Policy[]> {
+  public static async retrieveContextPolicies(contextQueries: string[], errors: Error[]): Promise<Policy[]> {
     const tag: string = `${Prp.tag}.retrieveContextPolicies()`;
     if (!Prp.bootstrapped) throw Error(`Prp has not been bootstrapped.`);
 
-    const idPolicies: any[] = Settings.Prp.cacheIdElements ?
-      Prp.targetMapThroughCacheToElements(context, Prp.policyTargetMap, Prp.policyMap) :
-      await Prp.targetMapThroughPromiseToElements(context, Prp.policyTargetMap, Prp.retrievePolicyById);
-    const evaluatedIdPolicies: Policy[] = [...idPolicies, ...Prp.policyMatchAll].map(policy =>
-      Prp.evaluatePolicy(policy, errors));
-    if (Settings.Prp.debug) log(tag, 'evaluatedIdPolicies:', evaluatedIdPolicies);
+    const policyTarget: id[][] = contextQueries.map(query => Prp.policyTargetMap[query]);
+    const policyIds: id[] = unique([...flatten(policyTarget).filter(isPresent), ...Prp.policyMatchAll]);
+    if (Settings.Prp.debug) log(tag, 'policyIds:', policyIds);
+    const idPolicies: Policy[] = Settings.Prp.cacheIdElements ? policyIds.map(id => Prp.policyMap[id]) :
+      await Prp.retrieveElements(policyIds, Prp.retrievePolicyById, Bootstrap.getPolicy, Prp.evaluatePolicy, errors);
+    if (Settings.Prp.debug) log(tag, 'idPolicies:', idPolicies);
 
-    const urlPolicies: any[] = Settings.Prp.cacheUrlElements ?
-      Prp.targetMapThroughCacheToElements(context, Prp.externalPolicyTargetMap, Prp.policyMap) :
-      await Prp.targetMapThroughPromiseToElements(context, Prp.externalPolicyTargetMap, Prp.retrievePolicyByUrl);
-    const evaluatedUrlPolicies: Policy[] = [...urlPolicies, ...Prp.externalPolicyMatchAll].map(policy =>
-      Prp.evaluatePolicy(policy, errors));
-    if (Settings.Prp.debug) log(tag, 'evaluatedUrlPolicies:', evaluatedUrlPolicies);
+    const externalPolicyTarget: id[][] = contextQueries.map(query => Prp.externalPolicyTargetMap[query]);
+    const externalPolicyIds: id[] = unique([...flatten(externalPolicyTarget).filter(isPresent), ...Prp.externalPolicyMatchAll]);
+    if (Settings.Prp.debug) log(tag, 'externalPolicyIds:', externalPolicyIds);
+    const urlPolicies: Policy[] = Settings.Prp.cacheUrlElements ? externalPolicyIds.map(id => Prp.externalPolicyMap[id]) :
+      await Prp.retrieveElements(externalPolicyIds, Prp.retrievePolicyByUrl, Bootstrap.getPolicy, Prp.evaluatePolicy, errors);
+    if (Settings.Prp.debug) log(tag, 'urlPolicies:', urlPolicies);
 
     const policies: Policy[] = [...idPolicies, ...urlPolicies];
     return policies;
   }
 
-  public static async retrieveContextPolicySets(context: Context, errors: Error[]): Promise<PolicySet[]> {
+  public static async retrieveContextPolicySets(contextQueries: string[], errors: Error[]): Promise<PolicySet[]> {
     const tag: string = `${Prp.tag}.retrieveContextPolicySets()`;
     if (!Prp.bootstrapped) throw Error(`Prp has not been bootstrapped.`);
 
-    const idPolicySets: any[] = Settings.Prp.cacheIdElements ?
-      Prp.targetMapThroughCacheToElements(context, Prp.policySetTargetMap, Prp.policySetMap) :
-      await Prp.targetMapThroughPromiseToElements(context, Prp.policySetTargetMap, Prp.retrievePolicySetById);
-    const evaluatedIdPolicySets: PolicySet[] = [...idPolicySets, ...Prp.policySetMatchAll].map(policySet =>
-      Prp.evaluatePolicySet(policySet, errors));
-    if (Settings.Prp.debug) log(tag, 'evaluatedIdPolicySets:', evaluatedIdPolicySets);
+    const policySetTarget: id[][] = contextQueries.map(query => Prp.policySetTargetMap[query]);
+    const policySetIds: id[] = unique([...flatten(policySetTarget).filter(isPresent), ...Prp.policySetMatchAll]);
+    if (Settings.Prp.debug) log(tag, 'policySetIds:', policySetIds);
+    const idPolicySets: Policy[] = Settings.Prp.cacheIdElements ? policySetIds.map(id => Prp.policySetMap[id]) :
+      await Prp.retrieveElements(policySetIds, Prp.retrievePolicySetById, Bootstrap.getPolicySet, Prp.evaluatePolicySet, errors);
+    if (Settings.Prp.debug) log(tag, 'idPolicySets:', idPolicySets);
 
-    const urlPolicySets: any[] = Settings.Prp.cacheIdElements ?
-      Prp.targetMapThroughCacheToElements(context, Prp.externalPolicySetTargetMap, Prp.externalPolicySetMap) :
-      await Prp.targetMapThroughPromiseToElements(context, Prp.externalPolicySetTargetMap, Prp.retrievePolicySetByUrl);
-    const evaluatedUrlPolicySets: PolicySet[] = [...urlPolicySets, ...Prp.externalPolicySetMatchAll].map(policySet =>
-      Prp.evaluatePolicySet(policySet, errors));
-    if (Settings.Prp.debug) log(tag, 'evaluatedUrlPolicySets:', evaluatedUrlPolicySets);
+    const externalPolicySetTarget: id[][] = contextQueries.map(query => Prp.externalPolicySetTargetMap[query]);
+    const externalPolicySetIds: id[] = unique([...flatten(externalPolicySetTarget).filter(isPresent), ...Prp.externalPolicySetMatchAll]);
+    if (Settings.Prp.debug) log(tag, 'externalPolicySetIds:', externalPolicySetIds);
+    const urlPolicySets: Policy[] = Settings.Prp.cacheUrlElements ? externalPolicySetIds.map(id => Prp.externalPolicySetMap[id]) :
+      await Prp.retrieveElements(externalPolicySetIds, Prp.retrievePolicySetByUrl, Bootstrap.getPolicySet, Prp.evaluatePolicySet, errors);
+    if (Settings.Prp.debug) log(tag, 'urlPolicySets:', urlPolicySets);
 
-    const policySets: PolicySet[] = [...idPolicySets, ...urlPolicySets];
-    return policySets;
+    const policies: Policy[] = [...idPolicySets, ...urlPolicySets];
+    return policies;
   }
 
-  private static targetMapThroughCacheToElements(context: Context, targetMap: any, elementMap: any): (Policy | PolicySet)[] {
-    const tag: string = `${Prp.tag}.targetMapThroughCacheToElements()`;
-    if (Settings.Prp.debug) log(tag, 'targetMap:', targetMap);
-    if (Settings.Prp.debug) log(tag, 'elementMap:', elementMap);
-    const queries: string[] = Language.retrieveContextQueries(context);
-    if (Settings.Prp.debug) log(tag, 'queries:', queries);
-    const elementIdentifiers: (id | url)[] = unique(flatten(queries.map(query => targetMap[query]))).filter(isPresent);
-    if (Settings.Prp.debug) log(tag, 'elementIdentifiers:', elementIdentifiers);
-    const elements: (Policy | PolicySet)[] = elementIdentifiers.map(identifier => elementMap[identifier]);
-    if (Settings.Prp.debug) log(tag, 'elements:', elements);
-    return elements;
-  }
-
-  private static async targetMapThroughPromiseToElements(context: Context, targetMap: any, retrieve: Function): Promise<(Policy | PolicySet)[]> {
-    const tag: string = `${Prp.tag}.targetMapThroughPromiseToElements()`;
-    if (Settings.Prp.debug) log(tag, 'targetMap:', targetMap);
-    if (Settings.Prp.debug) log(tag, 'retrieve:', retrieve);
-    const queries: string[] = Language.retrieveContextQueries(context);
-    if (Settings.Prp.debug) log(tag, 'queries:', queries);
-    const elementIdentifiers: (id | url)[] = unique(flatten(queries.map(query => targetMap[query]))).filter(isPresent);
-    if (Settings.Prp.debug) log(tag, 'elementIdentifiers:', elementIdentifiers);
-    const elementRequests: Promise<(Policy | PolicySet)>[] = elementIdentifiers.map(identifier => retrieve(identifier));
-    return Promise.all(elementRequests).then(elements => {
-      if (Settings.Prp.debug) log(tag, 'elements:', elements);
-      return elements;
-    });
+  private static async retrieveElements(identifiers: (id | url)[], retrieve: Function, bootstrap: Function, evaluate: Function, errors: Error[]): Promise<any[]> {
+    const tag: string = `${Prp.tag}.retrieveElements()`;
+    const promises: Promise<any>[] = identifiers.map(identifier => retrieve(identifier));
+    const _elements: any[] = await Promise.all(promises);
+    const elements: any[] = _elements.map(_element => bootstrap(_element, errors));
+    const evaluatedElements: any[] = elements.map(element => evaluate(element, errors));
+    return evaluatedElements;
   }
 
   private static retrieveRuleTarget(element: Rule, parent: Policy, errors: Error[]): AnyOf[] {
